@@ -1001,6 +1001,10 @@ textarea.finput{resize:vertical;min-height:80px;}
   </header>
   <div class="main-layout">
     <aside class="sidebar">
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px">
+        <button onclick="abrirGestion()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px 8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer">➕ Nuevo alumno</button>
+        <button onclick="recargarAlumnos()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;cursor:pointer;font-size:14px" title="Recargar lista">🔄</button>
+      </div>
       <div class="sidebar-section">👷 Alumnos del taller</div>
       <div id="sidebarAlumnos"><div class="sidebar-empty">Cargando alumnos...</div></div>
     </aside>
@@ -3119,6 +3123,186 @@ function renderResumenAlumno(){
           '<span style="font-weight:800;color:var(--accent)">'+pc[k]+' jornada'+(pc[k]!==1?'s':'')+'</span></div>';
       }).join('')+
       '</div></div>' : '');
+}
+
+
+// ══════════════════════════════════════════
+// PANEL DE GESTIÓN DEL PROFESOR
+// Alta de alumnos, gestión de vehículos
+// ══════════════════════════════════════════
+
+async function recargarAlumnos(){
+  document.getElementById('sidebarAlumnos').innerHTML='<div style="padding:14px;text-align:center;color:var(--text-dim)">🔄 Cargando...</div>';
+  await initProfesor();
+}
+
+
+
+function renderPanelGestion(){
+  return '<div style="max-width:600px">'+
+    '<div style="font-family:\'Nunito\',sans-serif;font-weight:900;font-size:22px;color:var(--accent);margin-bottom:20px">⚙️ Gestión de alumnos</div>'+
+
+    // ALTA DE ALUMNO
+    '<div class="card" style="margin-bottom:16px">'+
+      '<div class="card-head"><span class="card-head-ico">➕</span><div>'+
+        '<div class="card-head-title">Dar de alta un alumno</div>'+
+        '<div class="card-head-sub">El alumno podrá acceder con estos datos</div>'+
+      '</div></div>'+
+      '<div class="card-body" style="display:flex;flex-direction:column;gap:10px">'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+          '<div><label class="flabel">Nombre</label><input class="finput" id="ga_nombre" placeholder="Nombre del alumno"></div>'+
+          '<div><label class="flabel">Apellidos</label><input class="finput" id="ga_apellidos" placeholder="Apellidos"></div>'+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+          '<div><label class="flabel">Grupo</label>'+
+            '<select class="finput" id="ga_grupo">'+
+              '<option value="1º CFGM Carrocería A">1º CFGM Carrocería A</option>'+
+              '<option value="1º CFGM Carrocería B">1º CFGM Carrocería B</option>'+
+              '<option value="2º CFGM Carrocería A" selected>2º CFGM Carrocería A</option>'+
+              '<option value="2º CFGM Carrocería B">2º CFGM Carrocería B</option>'+
+              '<option value="1º CFGS Automoción A">1º CFGS Automoción A</option>'+
+              '<option value="2º CFGS Automoción A">2º CFGS Automoción A</option>'+
+            '</select>'+
+          '</div>'+
+          '<div><label class="flabel">Curso</label><input class="finput" id="ga_curso" value="2024-25" placeholder="2024-25"></div>'+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+          '<div><label class="flabel">Contraseña</label>'+
+            '<div style="display:flex;gap:6px">'+
+              '<input class="finput" id="ga_password" placeholder="Contraseña para el alumno">'+
+              '<button onclick="generarPassword()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 12px;cursor:pointer;font-size:14px;white-space:nowrap" title="Generar contraseña aleatoria">🎲</button>'+
+            '</div>'+
+          '</div>'+
+          '<div style="display:flex;align-items:flex-end">'+
+            '<button onclick="darDeAltaAlumno()" class="btn btn-success btn-full">✅ Dar de alta</button>'+
+          '</div>'+
+        '</div>'+
+        '<div id="ga_resultado"></div>'+
+      '</div>'+
+    '</div>'+
+
+    // LISTA DE ALUMNOS CON GESTIÓN
+    '<div class="card">'+
+      '<div class="card-head"><span class="card-head-ico">👥</span><div>'+
+        '<div class="card-head-title">Alumnos registrados</div>'+
+        '<div class="card-head-sub">Gestiona contraseñas y accesos</div>'+
+      '</div></div>'+
+      '<div id="ga_lista" style="padding:8px 0">'+
+        '<div style="padding:14px;text-align:center;color:var(--text-dim)">⏳ Cargando...</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+function generarPassword(){
+  var chars = 'abcdefhjkmnpqrstuvwxyz23456789';
+  var pwd = '';
+  for(var i=0;i<8;i++) pwd += chars[Math.floor(Math.random()*chars.length)];
+  document.getElementById('ga_password').value = pwd;
+  document.getElementById('ga_password').type = 'text';
+}
+
+async function darDeAltaAlumno(){
+  var nombre = (document.getElementById('ga_nombre').value||'').trim();
+  var apellidos = (document.getElementById('ga_apellidos').value||'').trim();
+  var grupo = document.getElementById('ga_grupo').value;
+  var curso = document.getElementById('ga_curso').value;
+  var password = document.getElementById('ga_password').value.trim();
+  var res_div = document.getElementById('ga_resultado');
+
+  if(!nombre||!password){
+    res_div.innerHTML='<div style="color:var(--danger);font-size:13px;font-weight:700">⚠️ El nombre y la contraseña son obligatorios.</div>';
+    return;
+  }
+
+  res_div.innerHTML='<div style="color:var(--text-dim);font-size:13px">⏳ Guardando...</div>';
+
+  try{
+    var res = await sb.from('alumnos').insert([{
+      nombre: nombre,
+      apellidos: apellidos,
+      grupo: grupo,
+      curso: curso,
+      password: password,
+      rol: 'alumno',
+      activo: true
+    }]).select();
+
+    if(res.error) throw res.error;
+
+    res_div.innerHTML='<div style="background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;font-weight:700;color:var(--success)">'+
+      '✅ Alumno <strong>'+nombre+' '+apellidos+'</strong> dado de alta.<br>'+
+      '<span style="font-weight:400">Contraseña: <strong>'+password+'</strong> · Grupo: '+grupo+'</span>'+
+    '</div>';
+
+    // Limpiar campos
+    ['ga_nombre','ga_apellidos','ga_password','ga_curso'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('ga_curso').value='2024-25';
+
+    // Recargar lista y sidebar
+    await cargarListaGestion();
+    alumnosLista = alumnosLista.concat(res.data);
+    renderSidebarCompleto();
+
+  }catch(e){
+    res_div.innerHTML='<div style="color:var(--danger);font-size:13px;font-weight:700">❌ Error: '+e.message+'</div>';
+    console.error(e);
+  }
+}
+
+async function cargarListaGestion(){
+  var wrap = document.getElementById('ga_lista');
+  if(!wrap) return;
+  try{
+    var res = await sb.from('alumnos').select('*').eq('rol','alumno').order('apellidos');
+    if(res.error) throw res.error;
+    var lista = res.data||[];
+    if(!lista.length){
+      wrap.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-dim)">No hay alumnos registrados todavía.</div>';
+      return;
+    }
+    wrap.innerHTML = lista.map(function(a){
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">'+
+        '<div style="width:36px;height:36px;border-radius:50%;background:var(--accent-light);border:2px solid var(--accent2);display:flex;align-items:center;justify-content:center;font-family:\'Nunito\',sans-serif;font-weight:900;font-size:13px;color:var(--accent);flex-shrink:0">'+
+          ((a.nombre||'')[0]||'').toUpperCase()+((a.apellidos||'')[0]||'').toUpperCase()+
+        '</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-family:\'Nunito\',sans-serif;font-weight:800;font-size:13px">'+a.nombre+' '+a.apellidos+'</div>'+
+          '<div style="font-size:11px;color:var(--text-dim)">'+a.grupo+' · '+a.curso+'</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:8px">'+
+          '<span style="font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-family:monospace">'+a.password+'</span>'+
+          '<button onclick="toggleActivoAlumno(\''+a.id+'\','+a.activo+')" '+
+            'style="padding:4px 10px;border-radius:6px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;'+
+            (a.activo?'background:var(--success-bg);border-color:var(--success);color:var(--success)':'background:var(--danger-bg);border-color:var(--danger);color:var(--danger)')+'">'+(a.activo?'✅ Activo':'❌ Inactivo')+'</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }catch(e){
+    wrap.innerHTML='<div style="padding:14px;color:var(--danger)">❌ Error: '+e.message+'</div>';
+  }
+}
+
+async function toggleActivoAlumno(alumnoId, activo){
+  try{
+    var res = await sb.from('alumnos').update({activo: !activo}).eq('id',alumnoId);
+    if(res.error) throw res.error;
+    toast((activo?'⛔ Alumno desactivado':'✅ Alumno activado'));
+    cargarListaGestion();
+    initProfesor();
+  }catch(e){ toast('❌ Error: '+e.message); }
+}
+
+// Cargar lista automáticamente cuando se abre gestión
+var _origRenderPanelGestion = renderPanelGestion;
+// Autocargar lista tras mostrar el panel
+var _gestionObserver = null;
+function abrirGestion(){
+  var mainDiv = document.getElementById('mainContent');
+  mainDiv.innerHTML = renderPanelGestion();
+  cargarListaGestion();
 }
 
 </script>
