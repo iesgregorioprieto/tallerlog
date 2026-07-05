@@ -2593,8 +2593,8 @@ async function abrirAlumno(alumnoId){
   document.querySelectorAll('#sidebarAlumnos .alumno-item').forEach(function(el){
     el.classList.toggle('active', el.getAttribute('data-id')===alumnoId);
   });
-  var content = document.getElementById('mainContent');
-  content.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-dim)">⏳ Cargando cuaderno del alumno...</div>';
+  var mainDiv = document.getElementById('mainContent');
+  mainDiv.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-dim)">⏳ Cargando cuaderno del alumno...</div>';
   try{
     var alumnoObj = alumnosLista.find(function(a){ return a.id===alumnoId; });
     var [resV, resJ, resC] = await Promise.all([
@@ -2629,10 +2629,11 @@ async function abrirAlumno(alumnoId){
       };
     });
 
+    if(!alumnosCache) alumnosCache = {};
     alumnosCache[alumnoId] = { alumno: alumnoObj, vehiculos: vehiculos, registros: regsAdapted };
 
     // Cierres keyed como en el original: alumnoId_vehiculoId_proceso
-    cierresCache = cierresCache || {};
+    if(!cierresCache) cierresCache = {};
     cierresRows.forEach(function(c){
       var vid = c.vehiculo_id || '__sv__';
       var key = alumnoId+'_'+vid+'_'+c.proceso;
@@ -2641,7 +2642,7 @@ async function abrirAlumno(alumnoId){
 
     renderFichaAlumno(alumnoId);
   }catch(e){
-    content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger)">❌ Error al cargar los datos del alumno.<br><span style="font-size:12px">'+e.message+'</span></div>';
+    (document.getElementById('mainContent')||mainDiv||{}).innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger)">❌ Error al cargar los datos del alumno.<br><span style="font-size:12px">'+e.message+'</span></div>';
     console.error(e);
   }
 }
