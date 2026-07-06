@@ -2882,6 +2882,49 @@ function renderDiaCard(r, alumnoKey){
     html+='</div></div>';
   }
 
+  // Checklist del proceso
+  var cl = r.checkData || {};
+  var clKeys = Object.keys(cl);
+  if(clKeys.length){
+    var done = clKeys.filter(function(k){ return cl[k]; }).length;
+    var pct2 = Math.round(done/clKeys.length*100);
+    var pctColor = pct2>=80?'var(--success)':pct2>=50?'var(--warning)':'var(--danger)';
+    html += '<div class="reg-section"><div class="reg-section-title" style="display:flex;justify-content:space-between;align-items:center">'+
+      '<span>✅ Checklist del proceso</span>'+
+      '<span style="font-weight:800;color:'+pctColor+'">'+done+'/'+clKeys.length+' ('+pct2+'%)</span>'+
+      '</div>';
+    var clData = CHECKLISTS_DATA[r.proceso];
+    if(clData && clData.secciones){
+      clData.secciones.forEach(function(sec){
+        html += '<div style="font-size:11px;font-weight:700;color:var(--accent);margin:8px 0 4px;padding-left:6px;border-left:3px solid var(--accent2)">'+sec.titulo+'</div>';
+        sec.items.forEach(function(item){
+          var ok = cl[item.k];
+          html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)">'+
+            '<div style="width:18px;height:18px;border-radius:4px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;background:'+(ok?'var(--success)':'var(--danger-bg)')+';'+(ok?'':'border:1px solid var(--danger);')+'color:'+(ok?'#fff':'var(--danger)')+'">'+
+            (ok?'✓':'✗')+'</div>'+
+            '<span style="font-size:12px;line-height:1.4;color:'+(ok?'var(--text)':'var(--text-dim)')+'">'+item.lbl+'</span>'+
+          '</div>';
+        });
+      });
+    }
+    html += '</div>';
+  }
+
+  // Datos técnicos del proceso (extras)
+  var extras = r.extras || {};
+  var extraKeys = Object.keys(extras).filter(function(k){ return extras[k] && extras[k]!==''; });
+  if(extraKeys.length){
+    html += '<div class="reg-section"><div class="reg-section-title">🔬 Datos técnicos</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+    extraKeys.forEach(function(k){
+      html += '<div style="background:var(--surface2);border-radius:6px;padding:6px 10px;font-size:12px">'+
+        '<div style="color:var(--text-dim);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">'+k.replace(/_/g,' ')+'</div>'+
+        '<div style="font-weight:700;margin-top:2px">'+extras[k]+'</div>'+
+      '</div>';
+    });
+    html += '</div></div>';
+  }
+
   // Daños carrocería
   if(r.danosCarroceria&&Object.keys(r.danosCarroceria).length){
     html+='<div class="reg-section"><div class="reg-section-title">🚗 Daños carrocería</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
