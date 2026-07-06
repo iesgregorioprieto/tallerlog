@@ -3457,19 +3457,28 @@ async function solicitarCierre(btn){
   btn.disabled = true;
   btn.textContent = '⏳ Enviando aviso...';
   try{
-    var res = await sb.from('cierres').upsert([{
-      alumno_id: currentUser.id,
-      proceso: proceso,
-      alumno_solicita_cierre: true,
-      fecha_solicitud: new Date().toLocaleDateString('es-ES'),
-      nota_final: null
-    }], {onConflict: 'alumno_id,proceso'}).select();
+    // Intentar insertar, si ya existe actualizar
+    var resCheck = await sb.from('cierres').select('id').eq('alumno_id', currentUser.id).eq('proceso', proceso);
+    var res;
+    if(resCheck.data && resCheck.data.length > 0){
+      res = await sb.from('cierres').update({
+        alumno_solicita_cierre: true,
+        fecha_solicitud: new Date().toLocaleDateString('es-ES')
+      }).eq('id', resCheck.data[0].id).select();
+    } else {
+      res = await sb.from('cierres').insert([{
+        alumno_id: currentUser.id,
+        proceso: proceso,
+        alumno_solicita_cierre: true,
+        fecha_solicitud: new Date().toLocaleDateString('es-ES')
+      }]).select();
+    }
     if(res.error) throw res.error;
     misResumenEstados[proceso] = 'solicitado';
-    showToast('✅ Aviso enviado al profesor');
+    toast('✅ Aviso enviado al profesor');
     cargarEstadosProcesos().then(renderResumenAlumno);
   }catch(e){
-    showToast('❌ Error: ' + e.message);
+    toast('❌ Error: ' + e.message);
     btn.disabled = false;
     btn.textContent = '✋ He terminado — avisar al profesor';
   }
