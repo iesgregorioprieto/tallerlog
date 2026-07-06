@@ -981,7 +981,7 @@ textarea.finput{resize:vertical;min-height:80px;}
       <span class="bnav-icon">📚</span>
       <span class="bnav-lbl">Historial</span>
     </button>
-    <button class="bnav-tab" id="bnav3" onclick="showScreen('screenResumen',3);renderResumenAlumno()">
+    <button class="bnav-tab" id="bnav3" onclick="showScreen('screenResumen',3);cargarEstadosProcesos().then(renderResumenAlumno)">
       <div class="bnav-indicator"></div>
       <span class="bnav-icon">📊</span>
       <span class="bnav-lbl">Resumen</span>
@@ -3350,6 +3350,49 @@ function abrirGestion(){
   var mainDiv = document.getElementById('mainContent');
   mainDiv.innerHTML = renderPanelGestion();
   cargarListaGestion();
+}
+
+
+// ── ALUMNO: solicitar cierre de proceso
+var misResumenEstados = {};
+
+async function cargarEstadosProcesos(){
+  try{
+    var res = await sb.from('cierres').select('proceso, alumno_solicita_cierre, nota_final').eq('alumno_id', currentUser.id);
+    if(res.error) throw res.error;
+    misResumenEstados = {};
+    (res.data||[]).forEach(function(c){
+      if(c.nota_final !== null){ misResumenEstados[c.proceso] = 'evaluado'; }
+      else if(c.alumno_solicita_cierre){ misResumenEstados[c.proceso] = 'solicitado'; }
+      else { misResumenEstados[c.proceso] = 'en_curso'; }
+    });
+  }catch(e){ misResumenEstados = {}; }
+}
+
+async function solicitarCierre(btn){
+  var proceso = btn.getAttribute('data-proceso');
+  if(!proceso) return;
+  var p = PROCESOS[proceso]||{name:proceso};
+  if(!confirm('¿Confirmas que has terminado ' + p.name + '?\nEl profesor recibirá el aviso.')){return;}
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando aviso...';
+  try{
+    var res = await sb.from('cierres').upsert([{
+      alumno_id: currentUser.id,
+      proceso: proceso,
+      alumno_solicita_cierre: true,
+      fecha_solicitud: new Date().toLocaleDateString('es-ES'),
+      nota_final: null
+    }], {onConflict: 'alumno_id,proceso'}).select();
+    if(res.error) throw res.error;
+    misResumenEstados[proceso] = 'solicitado';
+    showToast('✅ Aviso enviado al profesor');
+    cargarEstadosProcesos().then(renderResumenAlumno);
+  }catch(e){
+    showToast('❌ Error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '✋ He terminado — avisar al profesor';
+  }
 }
 
 </script>
