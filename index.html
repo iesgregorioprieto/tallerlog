@@ -2972,6 +2972,16 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
   var vehMap={}; vehiculos.forEach(function(v){ vehMap[v.id]=v; });
 
   var fasesPresentes=fasesOrden.filter(function(f){ return regs.some(function(r){ return r.proceso===f; }); });
+  // Construir mapa de vehículos por fase para acceso rápido
+  var fasesVehiculos={};
+  fasesPresentes.forEach(function(f){
+    fasesVehiculos[f]=[];
+    var vids=[];
+    regs.filter(function(r){return r.proceso===f;}).forEach(function(r){
+      var vid=r.vehiculoId||'__sv__';
+      if(vids.indexOf(vid)<0){ vids.push(vid); fasesVehiculos[f].push({vid:vid}); }
+    });
+  });
   if(!fasesPresentes.length) return '<div class="card"><p style="color:var(--text-dim);text-align:center;padding:32px">No hay procesos con registros todavía.</p></div>';
 
   fasesPresentes.forEach(function(fase){
