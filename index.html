@@ -981,7 +981,7 @@ textarea.finput{resize:vertical;min-height:80px;}
       <span class="bnav-icon">📚</span>
       <span class="bnav-lbl">Historial</span>
     </button>
-    <button class="bnav-tab" id="bnav3" onclick="showScreen('screenResumen',3);cargarEstadosProcesos().then(renderResumenAlumno)">
+    <button class="bnav-tab" id="bnav3" onclick="showScreen('screenResumen',3);renderResumenAlumno()">
       <div class="bnav-indicator"></div>
       <span class="bnav-icon">📊</span>
       <span class="bnav-lbl">Resumen</span>
@@ -2592,11 +2592,6 @@ function renderSidebarCompleto(){
 }
 
 async function abrirAlumno(alumnoId){
-  // Garantizar que los caches globales existen (defensa contra cualquier problema de scope)
-  window.alumnosCache = window.alumnosCache || {};
-  window.cierresCache = window.cierresCache || {};
-  window.evalTemp = window.evalTemp || {};
-
   alumnoActivo = alumnoId;
   activeTab = 'registros';
   document.querySelectorAll('#sidebarAlumnos .alumno-item').forEach(function(el){
@@ -2638,13 +2633,15 @@ async function abrirAlumno(alumnoId){
       };
     });
 
-    window.alumnosCache[alumnoId] = { alumno: alumnoObj, vehiculos: vehiculos, registros: regsAdapted };
+    if(!alumnosCache) alumnosCache = {};
+    alumnosCache[alumnoId] = { alumno: alumnoObj, vehiculos: vehiculos, registros: regsAdapted };
 
     // Cierres keyed como en el original: alumnoId_vehiculoId_proceso
+    if(!cierresCache) cierresCache = {};
     cierresRows.forEach(function(c){
       var vid = c.vehiculo_id || '__sv__';
       var key = alumnoId+'_'+vid+'_'+c.proceso;
-      window.cierresCache[key] = { ceEvals: c.ce_evaluaciones||{}, nota: c.nota_final, fecha: c.fecha_cierre, dbId: c.id };
+      cierresCache[key] = { ceEvals: c.ce_evaluaciones||{}, nota: c.nota_final, fecha: c.fecha_cierre, dbId: c.id };
     });
 
     renderFichaAlumno(alumnoId);
@@ -2793,7 +2790,7 @@ function renderRegistrosTab(key, regs, vehiculos){
         '</div>'+
         '<div class="registro-detalle hidden" id="'+panelId+'">';
       fRegs.forEach(function(r){
-        html+=renderDiaCardCompleto(r, key, (function(){var vm={}; vehiculos.forEach(function(v){vm[v.id]=v;}); return vm;})());
+        html+=renderDiaCard(r, key);
       });
       html+='</div></div>';
     });
@@ -2885,15 +2882,8 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
 
     var panelId='evp_'+alumnoKey+'_'+fase;
     var cerradosTodos=vehIds.length>0&&vehIds.every(function(vid){ return !!cierres[alumnoKey+'_'+vid+'_'+fase]; });
-    // Verificar si el alumno ha solicitado cierre en algún vehículo de este proceso
-    var solicita = false;
-    fasesVehiculos[fase].forEach(function(fv){
-      var cierreKey = alumnoKey+'_'+fv.vid+'_'+fase;
-      var c = cierres[cierreKey];
-      if(c && c.alumno_solicita_cierre && !c.nota_final) solicita = true;
-    });
-    var chipColor=esRec?'var(--text-dim)':(cerradosTodos?'#22c55e':(solicita?'var(--warning)':'var(--accent)'));
-    var chipLabel=esRec?'1º curso':(cerradosTodos?'🔒 Todos cerrados':(solicita?'⚡ Listo para evaluar':'🔄 En curso'));
+    var chipColor=esRec?'var(--text-dim)':(cerradosTodos?'#22c55e':'var(--accent)');
+    var chipLabel=esRec?'1º curso':(cerradosTodos?'🔒 Todos cerrados':'🔄 En curso');
 
     html+='<div class="proceso-eval-panel">'+
       '<div class="proceso-eval-header" onclick="toggleDetalle(\''+panelId+'\',this)">'+
@@ -3104,64 +3094,35 @@ function renderResumenAlumno(){
   misJornadas.forEach(function(j){ pc[j.proceso]=(pc[j.proceso]||0)+1; });
   var wrap = document.getElementById('resumenContent');
   if(!wrap) return;
-
-  // Datos personales
-  var html = '<div class="card"><div class="card-body">';
-  html += '<div style="display:flex;flex-direction:column;gap:8px">';
-  html += filaResumen('Alumno', '👷', (currentUser.nombre||'')+' '+(currentUser.apellidos||''));
-  html += filaResumen('Grupo', '🏫', currentUser.grupo||'—');
-  html += filaResumen('Vehículos', '🚗', misVehiculos.length);
-  html += filaResumen('Jornadas', '📅', misJornadas.length);
-  html += filaResumen('Clases totales', '🕐', horas);
-  html += '</div></div></div>';
-
-  // Procesos
-  if(Object.keys(pc).length){
-    html += '<div class="section-title">🛠️ Mis procesos — Solicitar evaluación</div>';
-    html += '<div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--warning);font-weight:600;margin-bottom:12px">';
-    html += '⚠️ Cuando hayas terminado un proceso, avisa al profesor para que lo evalúe.</div>';
-
-    Object.keys(pc).forEach(function(k){
-      var p = PROCESOS[k]||{icon:'🔧',name:k};
-      var estado = misResumenEstados[k]||'en_curso';
-      var nJornadas = pc[k];
-
-      var badge = '';
-      var btn = '';
-      if(estado==='evaluado'){
-        badge = '<span style="background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">✅ Evaluado</span>';
-      } else if(estado==='solicitado'){
-        badge = '<span style="background:#e3f2fd;border:1px solid var(--accent2);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">⏳ Esperando evaluación</span>';
-      } else {
-        badge = '<span style="background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">🔄 En curso</span>';
-        btn = '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
-            + '<button id="btn_sol_'+k+'" onclick="solicitarCierre(this)" data-proceso="'+k+'"'
-            + ' style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer">'
-            + '✋ He terminado — avisar al profesor</button></div>';
-      }
-
-      html += '<div class="card" style="margin-bottom:10px"><div class="card-body">';
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">';
-      html += '<div style="display:flex;align-items:center;gap:10px">';
-      html += '<span style="font-size:28px">'+p.icon+'</span>';
-      html += '<div>';
-      html += '<div style="font-weight:800;font-size:15px">'+p.name+'</div>';
-      html += '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">📅 '+nJornadas+' jornada'+(nJornadas!==1?'s':'')+'</div>';
-      html += '</div></div>';
-      html += badge;
-      html += '</div>';
-      html += btn;
-      html += '</div></div>';
-    });
-  }
-
-  wrap.innerHTML = html;
-}
-
-function filaResumen(label, icon, valor){
-  return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'
-    +'<span style="font-weight:700;color:var(--text-dim)">'+icon+' '+label+'</span>'
-    +'<span style="font-weight:800">'+valor+'</span></div>';
+  wrap.innerHTML =
+    '<div class="card"><div class="card-body">'+
+    '<div style="display:flex;flex-direction:column;gap:8px">'+
+    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
+      '<span style="font-weight:700;color:var(--text-dim)">👷 Alumno</span>'+
+      '<span style="font-weight:800">'+(currentUser.nombre||'')+' '+(currentUser.apellidos||'')+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
+      '<span style="font-weight:700;color:var(--text-dim)">🏫 Grupo</span>'+
+      '<span style="font-weight:800">'+(currentUser.grupo||'—')+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
+      '<span style="font-weight:700;color:var(--text-dim)">🚗 Vehículos</span>'+
+      '<span style="font-weight:800">'+misVehiculos.length+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
+      '<span style="font-weight:700;color:var(--text-dim)">📅 Jornadas</span>'+
+      '<span style="font-weight:800">'+misJornadas.length+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;padding:8px 0">'+
+      '<span style="font-weight:700;color:var(--text-dim)">🕐 Clases totales</span>'+
+      '<span style="font-weight:800">'+horas+'</span></div>'+
+    '</div></div></div>'+
+    (Object.keys(pc).length ?
+      '<div class="section-title">🛠️ Procesos trabajados</div>'+
+      '<div class="card"><div class="card-body">'+
+      Object.keys(pc).map(function(k){
+        var p = PROCESOS[k]||{icon:'🔧',name:k};
+        return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">'+
+          '<span>'+p.icon+' '+p.name+'</span>'+
+          '<span style="font-weight:800;color:var(--accent)">'+pc[k]+' jornada'+(pc[k]!==1?'s':'')+'</span></div>';
+      }).join('')+
+      '</div></div>' : '');
 }
 
 
@@ -3342,161 +3303,6 @@ function abrirGestion(){
   var mainDiv = document.getElementById('mainContent');
   mainDiv.innerHTML = renderPanelGestion();
   cargarListaGestion();
-}
-
-
-// ══════════════════════════════════════════
-// ALUMNO — SOLICITAR CIERRE DE PROCESO
-// ══════════════════════════════════════════
-var misResumenEstados = {}; // { proceso: 'en_curso'|'solicitado'|'evaluado' }
-
-// Cargar estados al entrar a la pantalla de resumen
-async function cargarEstadosProcesos(){
-  try{
-    var res = await sb.from('cierres').select('proceso, alumno_solicita_cierre, nota_final').eq('alumno_id', currentUser.id);
-    if(res.error) throw res.error;
-    misResumenEstados = {};
-    (res.data||[]).forEach(function(c){
-      if(c.nota_final !== null){ misResumenEstados[c.proceso] = 'evaluado'; }
-      else if(c.alumno_solicita_cierre){ misResumenEstados[c.proceso] = 'solicitado'; }
-      else { misResumenEstados[c.proceso] = 'en_curso'; }
-    });
-  }catch(e){ misResumenEstados = {}; console.error(e); }
-}
-
-async function solicitarCierre(btnEl){
-  var proceso = btnEl ? btnEl.getAttribute('data-proceso') : null;
-  if(!proceso) return;
-  var p = PROCESOS[proceso]||{icon:'🔧',name:proceso};
-  if(!confirm('¿Confirmas que has terminado el proceso de '+p.name+'?\n\nEl profesor recibirá el aviso para evaluarte.\nUna vez confirmado no podrás añadir más jornadas de este proceso.')){
-    return;
-  }
-  try{
-    // Upsert en cierres con flag alumno_solicita_cierre = true
-    var res = await sb.from('cierres').upsert([{
-      alumno_id: currentUser.id,
-      proceso: proceso,
-      alumno_solicita_cierre: true,
-      fecha_solicitud: new Date().toLocaleDateString('es-ES'),
-      nota_final: null
-    }], {onConflict: 'alumno_id,proceso'}).select();
-    if(res.error) throw res.error;
-    misResumenEstados[proceso] = 'solicitado';
-    showToast('✅ Aviso enviado al profesor');
-    renderResumenAlumno();
-  }catch(e){
-    showToast('❌ Error al enviar aviso: '+e.message);
-    console.error(e);
-  }
-}
-
-// ══════════════════════════════════════════
-// PROFESOR — VER DETALLE DE JORNADA
-// Al pinchar en un día se despliega todo
-// ══════════════════════════════════════════
-function renderDetalleJornadaCompleto(j, vehMap){
-  var p = PROCESOS[j.proceso]||{icon:'🔧',name:j.proceso};
-  var v = vehMap && j.vehiculoId ? vehMap[j.vehiculoId] : null;
-  var html = '<div style="padding:14px 18px;border-top:1px solid var(--border);background:rgba(0,0,0,.02)">';
-
-  // Vehículo
-  if(v){
-    html += '<div style="background:var(--accent-light);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px;font-size:13px">'+
-      '🚗 <strong>'+v.marca+' '+v.modelo+'</strong>'+(v.matricula?' · '+v.matricula:'')+
-      (v.color?' · 🎨 '+v.color:'')+
-    '</div>';
-  }
-
-  // Horas / clases
-  if(j.horas && j.horas.length){
-    html += '<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🕐 Clases</span>'+
-      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'+
-      j.horas.map(function(h){ return '<span style="background:var(--accent-light);border:1px solid var(--accent2);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700">'+h+'</span>'; }).join('')+
-    '</div></div>';
-  }
-
-  // Piezas
-  if(j.piezasTexto){
-    html += '<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🔩 Piezas trabajadas</span>'+
-      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'+
-      j.piezasTexto.split(' | ').map(function(p){ return '<span style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:12px">'+p+'</span>'; }).join('')+
-    '</div></div>';
-  }
-
-  // Checklist
-  var cl = j.checkData || {};
-  var clKeys = Object.keys(cl);
-  if(clKeys.length){
-    var done = clKeys.filter(function(k){ return cl[k]; }).length;
-    var pct = Math.round(done/clKeys.length*100);
-    var pctColor = pct>=80?'var(--success)':pct>=50?'var(--warning)':'var(--danger)';
-    html += '<div style="margin-bottom:10px">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
-        '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">✅ Checklist del proceso</span>'+
-        '<span style="font-size:13px;font-weight:800;color:'+pctColor+'">'+done+'/'+clKeys.length+' ('+pct+'%)</span>'+
-      '</div>';
-    var clData = CHECKLISTS_DATA[j.proceso];
-    if(clData && clData.secciones){
-      clData.secciones.forEach(function(sec){
-        html += '<div style="font-size:11px;font-weight:700;color:var(--text-dim);margin:6px 0 3px;padding-left:4px;border-left:3px solid var(--accent2)">'+sec.titulo+'</div>';
-        sec.items.forEach(function(item){
-          var ok = cl[item.k];
-          html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)">'+
-            '<div style="width:18px;height:18px;border-radius:4px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;'+(ok?'background:var(--success);color:#fff':'background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger)')+'">'+(ok?'✓':'✗')+'</div>'+
-            '<span style="font-size:12px;line-height:1.4;'+(ok?'':'color:var(--text-dim)')+'">'+item.lbl+'</span>'+
-          '</div>';
-        });
-      });
-    }
-    html += '</div>';
-  }
-
-  // EPIs
-  var epis = j.epis || {};
-  var episKeys = Object.keys(epis);
-  if(episKeys.length){
-    html += '<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🦺 EPIs</span>'+
-      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">';
-    EPIS_LIST.forEach(function(e){
-      var ok = epis[e.k];
-      html += '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;border:2px solid;'+(ok?'background:var(--success-bg);border-color:var(--success);color:var(--success)':'background:var(--danger-bg);border-color:var(--danger);color:var(--danger)')+'">'+
-        (ok?'✓':'✗')+' '+e.icon+' '+e.lbl+'</span>';
-    });
-    html += '</div></div>';
-  }
-
-  // Observaciones
-  if(j.observaciones && j.observaciones.trim()){
-    html += '<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">💬 Observaciones</span>'+
-      '<div style="background:var(--surface2);border-left:3px solid var(--accent2);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:8px 12px;font-size:13px;line-height:1.6;margin-top:5px">'+escHtml(j.observaciones)+'</div></div>';
-  }
-
-  html += '</div>';
-  return html;
-}
-
-// Override de renderDiaCard para incluir el detalle completo expandible
-function renderDiaCardCompleto(j, alumnoKey, vehMap){
-  var p = PROCESOS[j.proceso]||{icon:'🔧',name:j.proceso};
-  var v = vehMap && j.vehiculoId ? vehMap[j.vehiculoId] : null;
-  var panelId = 'dia_'+j.id;
-  var pct = j.checkTotal>0?Math.round(j.checkDone/j.checkTotal*100):0;
-  var pctColor = pct>=80?'var(--success)':pct>=50?'var(--warning)':'var(--danger)';
-
-  return '<div class="reg-card" style="margin-bottom:8px">'+
-    '<div class="reg-head" style="cursor:pointer" onclick="toggleDetalle(\''+panelId+'\',this)">'+
-      '<span>📅</span>'+
-      '<span class="reg-fecha">'+j.fecha+'</span>'+
-      '<span class="reg-fase-badge">'+p.icon+' '+p.name+'</span>'+
-      (v?'<span style="font-size:11px;color:var(--text-dim)">🚗 '+v.marca+' '+v.modelo+'</span>':'') +
-      '<span style="font-size:11px;font-weight:700;color:'+pctColor+'">✅ '+pct+'%</span>'+
-      '<span style="font-size:11px;font-weight:700;color:var(--text-dim)">⏱️ '+(j.horas||[]).length+'h</span>'+
-      '<span class="registro-chevron" style="margin-left:auto">▼</span>'+
-    '</div>'+
-    '<div class="registro-detalle hidden" id="'+panelId+'">'+
-      renderDetalleJornadaCompleto(j, vehMap)+
-    '</div>'+
-  '</div>';
 }
 
 </script>
