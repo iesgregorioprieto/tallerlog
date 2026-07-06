@@ -2592,6 +2592,11 @@ function renderSidebarCompleto(){
 }
 
 async function abrirAlumno(alumnoId){
+  // Garantizar que los caches globales existen (defensa contra cualquier problema de scope)
+  window.alumnosCache = window.alumnosCache || {};
+  window.cierresCache = window.cierresCache || {};
+  window.evalTemp = window.evalTemp || {};
+
   alumnoActivo = alumnoId;
   activeTab = 'registros';
   document.querySelectorAll('#sidebarAlumnos .alumno-item').forEach(function(el){
@@ -2633,15 +2638,13 @@ async function abrirAlumno(alumnoId){
       };
     });
 
-    if(!alumnosCache) alumnosCache = {};
-    alumnosCache[alumnoId] = { alumno: alumnoObj, vehiculos: vehiculos, registros: regsAdapted };
+    window.alumnosCache[alumnoId] = { alumno: alumnoObj, vehiculos: vehiculos, registros: regsAdapted };
 
     // Cierres keyed como en el original: alumnoId_vehiculoId_proceso
-    if(!cierresCache) cierresCache = {};
     cierresRows.forEach(function(c){
       var vid = c.vehiculo_id || '__sv__';
       var key = alumnoId+'_'+vid+'_'+c.proceso;
-      cierresCache[key] = { ceEvals: c.ce_evaluaciones||{}, nota: c.nota_final, fecha: c.fecha_cierre, dbId: c.id };
+      window.cierresCache[key] = { ceEvals: c.ce_evaluaciones||{}, nota: c.nota_final, fecha: c.fecha_cierre, dbId: c.id };
     });
 
     renderFichaAlumno(alumnoId);
