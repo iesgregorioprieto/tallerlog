@@ -468,6 +468,22 @@ textarea.finput{resize:vertical;min-height:80px;}
 .rol-opt{background:var(--surface2);border:2px solid var(--border);border-radius:var(--radius);padding:22px 10px;text-align:center;cursor:pointer;transition:all .2s;user-select:none;}
 .rol-opt:hover{border-color:var(--accent);background:var(--accent-light);transform:translateY(-2px);box-shadow:var(--shadow-md);}
 .rol-opt:active{transform:translateY(0);}
+
+/* ── TABLA VISUAL DE PROCESO */
+.tabla-proceso{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.tabla-proceso th{background:var(--accent);color:#fff;padding:6px 10px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;white-space:nowrap;}
+.tabla-proceso th.item-col{text-align:left;min-width:160px;}
+.tabla-proceso td{padding:5px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:center;vertical-align:middle;}
+.tabla-proceso td.item-label{text-align:left;font-weight:600;color:var(--text);background:var(--surface2);font-size:11px;white-space:nowrap;}
+.tabla-proceso td.seccion-header{background:var(--accent-light);color:var(--accent);font-weight:800;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.5px;text-transform:uppercase;text-align:left;padding:4px 10px;}
+.tabla-proceso tr:hover td{background:rgba(21,101,192,.04);}
+.tabla-proceso td.item-label:hover{background:var(--surface2);}
+.tabla-ok{color:var(--success);font-size:15px;}
+.tabla-ko{color:var(--danger);font-size:13px;font-weight:700;}
+.tabla-val{font-size:11px;font-weight:700;color:var(--text);max-width:90px;word-break:break-word;}
+.tabla-empty{color:var(--text-light);font-size:11px;}
+.proceso-resumen-bar{display:flex;gap:16px;flex-wrap:wrap;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:10px;font-size:13px;}
+.proceso-resumen-stat{display:flex;align-items:center;gap:5px;font-weight:700;}
 </style>
 </head>
 <body>
@@ -2789,9 +2805,7 @@ function renderRegistrosTab(key, regs, vehiculos){
           '<span class="registro-chevron">▼</span>'+
         '</div>'+
         '<div class="registro-detalle hidden" id="'+panelId+'">';
-      fRegs.forEach(function(r){
-        html+=renderDiaCard(r, key);
-      });
+      html += renderTablaProcesoCompleto(fase, fRegs, {}, key, vid);
       html+='</div></div>';
     });
     html+='</div>';
@@ -3459,6 +3473,124 @@ async function solicitarCierre(btn){
     btn.disabled = false;
     btn.textContent = '✋ He terminado — avisar al profesor';
   }
+}
+
+
+// ══════════════════════════════════════════
+// TABLA VISUAL DE PROCESO — vista del profesor
+// Muestra todas las jornadas en columnas, todos los ítems en filas
+// ══════════════════════════════════════════
+function renderTablaProcesoCompleto(fase, fRegs, cierres, alumnoKey, vid){
+  var fLabel = FASE_NAMES[fase] || fase;
+  var clData = CHECKLISTS_DATA[fase];
+  var totalHoras = fRegs.reduce(function(s,r){ return s + (Array.isArray(r.horas)?r.horas.length:0); }, 0);
+  var totalCheck = 0, doneCheck = 0;
+  fRegs.forEach(function(r){
+    var cl = r.checkData||{};
+    var keys = Object.keys(cl);
+    totalCheck += keys.length;
+    doneCheck += keys.filter(function(k){ return cl[k]; }).length;
+  });
+  var pctCheck = totalCheck>0 ? Math.round(doneCheck/totalCheck*100) : 0;
+  var pctColor = pctCheck>=80?'var(--success)':pctCheck>=50?'var(--warning)':'var(--danger)';
+
+  // Resumen rápido
+  var html = '<div class="proceso-resumen-bar">';
+  html += '<span class="proceso-resumen-stat">📅 '+fRegs.length+' jornada'+(fRegs.length!==1?'s':'')+'</span>';
+  html += '<span class="proceso-resumen-stat">🕐 '+totalHoras+' clases</span>';
+  html += '<span class="proceso-resumen-stat" style="color:'+pctColor+'">✅ Checklist: '+pctCheck+'%</span>';
+  // EPIs resumen
+  var episOk = 0, episTotal = 0;
+  var EPIS_K = ['ropa','botas','guantes','gafas','casco','mascarilla'];
+  fRegs.forEach(function(r){
+    EPIS_K.forEach(function(k){ episTotal++; if((r.epis||{})[k]) episOk++; });
+  });
+  var pctEpi = episTotal>0 ? Math.round(episOk/episTotal*100) : 0;
+  var epiColor = pctEpi>=90?'var(--success)':pctEpi>=70?'var(--warning)':'var(--danger)';
+  html += '<span class="proceso-resumen-stat" style="color:'+epiColor+'">🦺 EPIs: '+pctEpi+'%</span>';
+  html += '</div>';
+
+  // Tabla
+  html += '<div style="overflow-x:auto"><table class="tabla-proceso"><thead><tr>';
+  html += '<th class="item-col">Ítem / Jornada</th>';
+  fRegs.forEach(function(r){
+    html += '<th>📅 '+r.fecha+'<br><span style="font-size:10px;opacity:.8">'+(Array.isArray(r.horas)?r.horas.length:0)+'h</span></th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  // ── SECCIÓN: Checklist del proceso
+  if(clData && clData.secciones){
+    clData.secciones.forEach(function(sec){
+      // Cabecera de sección
+      html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">'+sec.titulo+'</td></tr>';
+      sec.items.forEach(function(item){
+        html += '<tr><td class="item-label">'+item.lbl+'</td>';
+        fRegs.forEach(function(r){
+          var cl = r.checkData||{};
+          var val = cl[item.k];
+          if(val===true) html += '<td><span class="tabla-ok">✓</span></td>';
+          else if(val===false) html += '<td><span class="tabla-ko">✗</span></td>';
+          else html += '<td><span class="tabla-empty">—</span></td>';
+        });
+        html += '</tr>';
+      });
+    });
+  }
+
+  // ── SECCIÓN: EPIs
+  html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">🦺 Equipos de Protección Individual</td></tr>';
+  var EPIS_LIST2 = [{k:'ropa',lbl:'Ropa trabajo'},{k:'botas',lbl:'Botas seguridad'},{k:'guantes',lbl:'Guantes'},{k:'gafas',lbl:'Gafas'},{k:'casco',lbl:'Casco'},{k:'mascarilla',lbl:'Mascarilla'}];
+  EPIS_LIST2.forEach(function(e){
+    html += '<tr><td class="item-label">'+e.lbl+'</td>';
+    fRegs.forEach(function(r){
+      var val = (r.epis||{})[e.k];
+      if(val===true) html += '<td><span class="tabla-ok">✓</span></td>';
+      else if(val===false) html += '<td><span class="tabla-ko">✗</span></td>';
+      else html += '<td><span class="tabla-empty">—</span></td>';
+    });
+    html += '</tr>';
+  });
+
+  // ── SECCIÓN: Datos técnicos (extras)
+  // Recopilar todas las claves de extras en todas las jornadas
+  var extraKeys = [];
+  fRegs.forEach(function(r){
+    Object.keys(r.extras||{}).forEach(function(k){
+      if(extraKeys.indexOf(k)<0 && (r.extras||{})[k]) extraKeys.push(k);
+    });
+  });
+  if(extraKeys.length){
+    html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">🔬 Datos técnicos del proceso</td></tr>';
+    extraKeys.forEach(function(k){
+      html += '<tr><td class="item-label">'+k.replace(/_/g,' ')+'</td>';
+      fRegs.forEach(function(r){
+        var val = (r.extras||{})[k];
+        html += '<td>'+(val?'<span class="tabla-val">'+val+'</span>':'<span class="tabla-empty">—</span>')+'</td>';
+      });
+      html += '</tr>';
+    });
+  }
+
+  // ── SECCIÓN: Piezas trabajadas
+  html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">🔩 Piezas trabajadas</td></tr>';
+  html += '<tr><td class="item-label">Piezas</td>';
+  fRegs.forEach(function(r){
+    var piezas = r.piezasTexto || '—';
+    html += '<td><span class="tabla-val" style="font-size:10px">'+piezas+'</span></td>';
+  });
+  html += '</tr>';
+
+  // ── SECCIÓN: Observaciones
+  html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">💬 Observaciones del alumno</td></tr>';
+  html += '<tr><td class="item-label">Observaciones</td>';
+  fRegs.forEach(function(r){
+    var obs = r.observaciones ? r.observaciones.substring(0,60)+(r.observaciones.length>60?'...':'') : '—';
+    html += '<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+escHtml(obs)+'</span></td>';
+  });
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+  return html;
 }
 
 </script>
