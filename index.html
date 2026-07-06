@@ -3105,68 +3105,63 @@ function renderResumenAlumno(){
   var wrap = document.getElementById('resumenContent');
   if(!wrap) return;
 
-  var html =
-    '<div class="card"><div class="card-body">'+
-    '<div style="display:flex;flex-direction:column;gap:8px">'+
-    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">👷 Alumno</span>'+
-      '<span style="font-weight:800">'+(currentUser.nombre||'')+' '+(currentUser.apellidos||'')+'</span></div>'+
-    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">🏫 Grupo</span>'+
-      '<span style="font-weight:800">'+(currentUser.grupo||'—')+'</span></div>'+
-    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">🚗 Vehículos</span>'+
-      '<span style="font-weight:800">'+misVehiculos.length+'</span></div>'+
-    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">📅 Jornadas</span>'+
-      '<span style="font-weight:800">'+misJornadas.length+'</span></div>'+
-    '<div style="display:flex;justify-content:space-between;padding:8px 0">'+
-      '<span style="font-weight:700;color:var(--text-dim)">🕐 Clases totales</span>'+
-      '<span style="font-weight:800">'+horas+'</span></div>'+
-    '</div></div></div>';
+  // Datos personales
+  var html = '<div class="card"><div class="card-body">';
+  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+  html += filaResumen('Alumno', '👷', (currentUser.nombre||'')+' '+(currentUser.apellidos||''));
+  html += filaResumen('Grupo', '🏫', currentUser.grupo||'—');
+  html += filaResumen('Vehículos', '🚗', misVehiculos.length);
+  html += filaResumen('Jornadas', '📅', misJornadas.length);
+  html += filaResumen('Clases totales', '🕐', horas);
+  html += '</div></div></div>';
 
+  // Procesos
   if(Object.keys(pc).length){
     html += '<div class="section-title">🛠️ Mis procesos — Solicitar evaluación</div>';
-    html += '<div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--warning);font-weight:600;margin-bottom:12px">'+
-      '⚠️ Cuando consideres que has terminado un proceso, avisa al profesor para que lo evalúe. Una vez avisado, no podrás añadir más jornadas de ese proceso.</div>';
+    html += '<div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--warning);font-weight:600;margin-bottom:12px">';
+    html += '⚠️ Cuando hayas terminado un proceso, avisa al profesor para que lo evalúe.</div>';
 
     Object.keys(pc).forEach(function(k){
       var p = PROCESOS[k]||{icon:'🔧',name:k};
-      var estado = misResumenEstados[k] || 'en_curso'; // en_curso, solicitado, evaluado
+      var estado = misResumenEstados[k]||'en_curso';
       var nJornadas = pc[k];
 
-      var estadoBadge = '';
-      var accion = '';
-
-      if(estado === 'evaluado'){
-        estadoBadge = '<span style="background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">✅ Evaluado</span>';
-        accion = '';
-      } else if(estado === 'solicitado'){
-        estadoBadge = '<span style="background:#e3f2fd;border:1px solid var(--accent2);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">⏳ Esperando evaluación</span>';
-        accion = '<span style="font-size:12px;color:var(--text-dim)">El profesor revisará tu trabajo</span>';
+      var badge = '';
+      var btn = '';
+      if(estado==='evaluado'){
+        badge = '<span style="background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">✅ Evaluado</span>';
+      } else if(estado==='solicitado'){
+        badge = '<span style="background:#e3f2fd;border:1px solid var(--accent2);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">⏳ Esperando evaluación</span>';
       } else {
-        estadoBadge = '<span style="background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">🔄 En curso</span>';
-        accion = '<button onclick="solicitarCierre(&quot;'+k+'&quot;)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px 16px;font-family:Nunito,sans-serif;font-weight:800;font-size:13px;cursor:pointer">'+
-          '✋ He terminado — avisar al profesor</button>';
+        badge = '<span style="background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">🔄 En curso</span>';
+        btn = '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
+            + '<button id="btn_sol_'+k+'" onclick="solicitarCierre(this)" data-proceso="'+k+'"'
+            + ' style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer">'
+            + '✋ He terminado — avisar al profesor</button></div>';
       }
 
-      html += '<div class="card" style="margin-bottom:10px"><div class="card-body">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'+
-          '<div style="display:flex;align-items:center;gap:10px">'+
-            '<span style="font-size:28px">'+p.icon+'</span>'+
-            '<div>'+
-              '<div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:15px">'+p.name+'</div>'+
-              '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">📅 '+nJornadas+' jornada'+(nJornadas!==1?'s':'')+'</div>'+
-            '</div>'+
-          '</div>'+
-          estadoBadge+
-        '</div>'+
-        (accion?'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'+accion+'</div>':'')+
-      '</div></div>';
+      html += '<div class="card" style="margin-bottom:10px"><div class="card-body">';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">';
+      html += '<div style="display:flex;align-items:center;gap:10px">';
+      html += '<span style="font-size:28px">'+p.icon+'</span>';
+      html += '<div>';
+      html += '<div style="font-weight:800;font-size:15px">'+p.name+'</div>';
+      html += '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">📅 '+nJornadas+' jornada'+(nJornadas!==1?'s':'')+'</div>';
+      html += '</div></div>';
+      html += badge;
+      html += '</div>';
+      html += btn;
+      html += '</div></div>';
     });
   }
 
   wrap.innerHTML = html;
+}
+
+function filaResumen(label, icon, valor){
+  return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'
+    +'<span style="font-weight:700;color:var(--text-dim)">'+icon+' '+label+'</span>'
+    +'<span style="font-weight:800">'+valor+'</span></div>';
 }
 
 
@@ -3369,7 +3364,9 @@ async function cargarEstadosProcesos(){
   }catch(e){ misResumenEstados = {}; console.error(e); }
 }
 
-async function solicitarCierre(proceso){
+async function solicitarCierre(btnEl){
+  var proceso = btnEl ? btnEl.getAttribute('data-proceso') : null;
+  if(!proceso) return;
   var p = PROCESOS[proceso]||{icon:'🔧',name:proceso};
   if(!confirm('¿Confirmas que has terminado el proceso de '+p.name+'?\n\nEl profesor recibirá el aviso para evaluarte.\nUna vez confirmado no podrás añadir más jornadas de este proceso.')){
     return;
