@@ -2972,8 +2972,15 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
 
     var panelId='evp_'+alumnoKey+'_'+fase;
     var cerradosTodos=vehIds.length>0&&vehIds.every(function(vid){ return !!cierres[alumnoKey+'_'+vid+'_'+fase]; });
-    var chipColor=esRec?'var(--text-dim)':(cerradosTodos?'#22c55e':'var(--accent)');
-    var chipLabel=esRec?'1º curso':(cerradosTodos?'🔒 Todos cerrados':'🔄 En curso');
+    // Verificar si el alumno ha solicitado cierre en algún vehículo de este proceso
+    var solicita = false;
+    fasesVehiculos[fase].forEach(function(fv){
+      var ck = alumnoKey+'_'+fv.vid+'_'+fase;
+      var c = cierres[ck];
+      if(c && c.alumno_solicita_cierre && !c.nota_final) solicita = true;
+    });
+    var chipColor=esRec?'var(--text-dim)':(cerradosTodos?'#22c55e':(solicita?'#e65100':'var(--accent)'));
+    var chipLabel=esRec?'1º curso':(cerradosTodos?'🔒 Todos cerrados':(solicita?'⚡ Listo para evaluar':'🔄 En curso'));
 
     html+='<div class="proceso-eval-panel">'+
       '<div class="proceso-eval-header" onclick="toggleDetalle(\''+panelId+'\',this)">'+
