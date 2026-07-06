@@ -2824,13 +2824,60 @@ function renderDiaCard(r, alumnoKey){
       '</div></div>';
   }
 
+  // Checklist del proceso
+  var cl = r.checkData || {};
+  var clKeys = Object.keys(cl);
+  if(clKeys.length){
+    var done = clKeys.filter(function(k){ return cl[k]; }).length;
+    var pctCl = Math.round(done/clKeys.length*100);
+    var pctColor = pctCl>=80?'var(--success)':pctCl>=50?'var(--warning)':'var(--danger)';
+    html += '<div class="reg-section"><div class="reg-section-title" style="display:flex;justify-content:space-between">'+
+      '<span>✅ Checklist del proceso</span>'+
+      '<span style="font-weight:800;color:'+pctColor+'">'+done+'/'+clKeys.length+' ('+pctCl+'%)</span>'+
+      '</div>';
+    var clData = CHECKLISTS_DATA[r.proceso];
+    if(clData && clData.secciones){
+      clData.secciones.forEach(function(sec){
+        html += '<div style="font-size:11px;font-weight:700;color:var(--text-dim);margin:8px 0 4px;padding-left:6px;border-left:3px solid var(--accent2)">'+sec.titulo+'</div>';
+        sec.items.forEach(function(item){
+          var ok = cl[item.k];
+          html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)">'+
+            '<div style="width:18px;height:18px;border-radius:4px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;'+(ok?'background:var(--success);color:#fff':'background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger)')+'">'+
+            (ok?'✓':'✗')+'</div>'+
+            '<span style="font-size:12px;line-height:1.4;color:'+(ok?'var(--text)':'var(--text-dim)')+'">'+item.lbl+'</span>'+
+          '</div>';
+        });
+      });
+    }
+    html += '</div>';
+  }
+
+  // Extras del proceso (campos técnicos)
+  var extras = r.extras || r.checkExtras || {};
+  var extraKeys = Object.keys(extras);
+  if(extraKeys.length){
+    html += '<div class="reg-section"><div class="reg-section-title">🔬 Datos técnicos del proceso</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+    extraKeys.forEach(function(k){
+      var val = extras[k];
+      if(!val) return;
+      var label = k.replace(/_/g,' ');
+      html += '<div style="background:var(--surface2);border-radius:6px;padding:6px 10px;font-size:12px">'+
+        '<div style="color:var(--text-dim);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">'+label+'</div>'+
+        '<div style="font-weight:700;margin-top:2px">'+val+'</div>'+
+      '</div>';
+    });
+    html += '</div></div>';
+  }
+
   // EPIs
   var EPIS=[{k:'ropa',icon:'👷',lbl:'Ropa'},{k:'botas',icon:'🥾',lbl:'Botas'},{k:'guantes',icon:'🧤',lbl:'Guantes'},{k:'gafas',icon:'🥽',lbl:'Gafas'},{k:'casco',icon:'⛑️',lbl:'Casco'},{k:'mascarilla',icon:'😷',lbl:'Mascarilla'}];
   if(r.epis){
     html+='<div class="reg-section"><div class="reg-section-title">🦺 EPIs</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
     EPIS.forEach(function(e){
       var ok=r.epis[e.k];
-      html+='<div style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;border:2px solid;'+(ok?'background:var(--success-bg);border-color:var(--success);color:var(--success)':'background:var(--danger-bg);border-color:var(--danger);color:var(--danger)')+'">'+(ok?'✓':'✗')+' '+e.icon+' '+e.lbl+'</div>';
+      html+='<div style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;border:2px solid;'+(ok?'background:var(--success-bg);border-color:var(--success);color:var(--success)':'background:var(--danger-bg);border-color:var(--danger);color:var(--danger)')+'">'+
+        (ok?'✓':'✗')+' '+e.icon+' '+e.lbl+'</div>';
     });
     html+='</div></div>';
   }
@@ -2854,7 +2901,7 @@ function renderDiaCard(r, alumnoKey){
 
   // Observaciones
   if(r.observaciones&&r.observaciones.trim()){
-    html+='<div class="reg-section"><div class="reg-section-title">💬 Observaciones</div>'+
+    html+='<div class="reg-section"><div class="reg-section-title">💬 Observaciones del alumno</div>'+
       '<div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;line-height:1.6;border-left:3px solid var(--accent2)">'+escHtml(r.observaciones)+'</div></div>';
   }
 
