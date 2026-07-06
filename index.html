@@ -3457,23 +3457,23 @@ async function solicitarCierre(btn){
   btn.disabled = true;
   btn.textContent = '⏳ Enviando aviso...';
   try{
-    // Intentar insertar, si ya existe actualizar
+    // Verificar si ya existe un cierre para este proceso
     var resCheck = await sb.from('cierres').select('id').eq('alumno_id', currentUser.id).eq('proceso', proceso);
-    var res;
+    if(resCheck.error) throw resCheck.error;
+    
+    var resOp;
     if(resCheck.data && resCheck.data.length > 0){
-      res = await sb.from('cierres').update({
-        alumno_solicita_cierre: true,
-        fecha_solicitud: new Date().toLocaleDateString('es-ES')
-      }).eq('id', resCheck.data[0].id).select();
+      // Actualizar el existente
+      resOp = await sb.from('cierres')
+        .update({ alumno_solicita_cierre: true, fecha_solicitud: new Date().toLocaleDateString('es-ES') })
+        .eq('id', resCheck.data[0].id);
     } else {
-      res = await sb.from('cierres').insert([{
-        alumno_id: currentUser.id,
-        proceso: proceso,
-        alumno_solicita_cierre: true,
-        fecha_solicitud: new Date().toLocaleDateString('es-ES')
-      }]).select();
+      // Insertar nuevo
+      resOp = await sb.from('cierres')
+        .insert({ alumno_id: currentUser.id, proceso: proceso, alumno_solicita_cierre: true, fecha_solicitud: new Date().toLocaleDateString('es-ES') });
     }
-    if(res.error) throw res.error;
+    if(resOp.error) throw resOp.error;
+    
     misResumenEstados[proceso] = 'solicitado';
     toast('✅ Aviso enviado al profesor');
     cargarEstadosProcesos().then(renderResumenAlumno);
@@ -3481,6 +3481,7 @@ async function solicitarCierre(btn){
     toast('❌ Error: ' + e.message);
     btn.disabled = false;
     btn.textContent = '✋ He terminado — avisar al profesor';
+    console.error('solicitarCierre error:', e);
   }
 }
 
