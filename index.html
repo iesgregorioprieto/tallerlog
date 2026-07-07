@@ -129,10 +129,15 @@ textarea.finput{resize:vertical;min-height:80px;}
 
 /* ── PROCESOS GRID */
 .proceso-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.proceso-opt{background:var(--surface2);border:2px solid var(--border);border-radius:var(--radius-sm);padding:12px 6px;text-align:center;cursor:pointer;transition:all .15s;user-select:none;}
+.proceso-opt{background:var(--surface2);border:2px solid var(--border);border-radius:var(--radius-sm);padding:12px 6px;text-align:center;cursor:pointer;transition:all .15s;user-select:none;position:relative;}
 .proceso-opt:hover{border-color:var(--accent2);background:var(--accent-light);}
 .proceso-opt.selected{border-color:var(--accent);background:var(--accent-light);}
 .proceso-opt.selected .po-name{color:var(--accent);}
+.proceso-opt.locked{opacity:.55;cursor:not-allowed;background:var(--surface2);border-style:dashed;}
+.proceso-opt.locked:hover{border-color:var(--border);background:var(--surface2);}
+.proceso-opt .lock-badge{position:absolute;top:4px;right:4px;font-size:11px;background:rgba(0,0,0,.08);border-radius:10px;padding:1px 6px;font-weight:800;color:var(--text-dim);}
+.proceso-opt.entregado .lock-badge{background:rgba(230,81,0,.15);color:#e65100;}
+.proceso-opt.evaluado .lock-badge{background:rgba(34,197,94,.18);color:#16a34a;}
 .po-icon{font-size:26px;display:block;margin-bottom:4px;line-height:1;}
 .po-name{font-family:'Nunito',sans-serif;font-size:11px;font-weight:800;color:var(--text);}
 
@@ -1150,6 +1155,7 @@ async function initAlumno(){
     misVehiculos = resV.data || [];
     misJornadas = resJ.data || [];
   }catch(e){ misVehiculos=[]; misJornadas=[]; console.error(e); }
+  await cargarEstadosProcesos();
   updateDashboard();
   renderVehiculosExistentes();
   renderHistorial();
@@ -1493,6 +1499,49 @@ function selectVehiculoReg(id){
   document.getElementById('vcard_'+id).classList.add('active');
   renderPiezasChips();
   document.getElementById('piezasWrap').style.display='block';
+  // Marcar procesos bloqueados en este vehículo (entregados o evaluados)
+  marcarProcesosBloqueados(id);
+}
+
+// Marca visualmente los procesos ya entregados/evaluados en el vehículo seleccionado
+function marcarProcesosBloqueados(vehiculoId){
+  // Limpiar estado previo
+  document.querySelectorAll('.proceso-opt').forEach(function(o){
+    o.classList.remove('locked','entregado','evaluado','selected');
+    var b=o.querySelector('.lock-badge'); if(b) b.remove();
+  });
+  selProceso=null;
+  // Deseleccionar horas también para evitar avanzar sin proceso
+  document.querySelectorAll('#step2 .hora-btn.selected, .horas-grid .hora-btn.selected').forEach(function(h){ h.classList.remove('selected'); });
+  selHoras=[];
+  checkSig2();
+
+  // Buscar cierres del alumno en este vehículo
+  if(!currentUser || !vehiculoId) return;
+  sb.from('cierres')
+    .select('proceso, alumno_solicita_cierre, nota_final, fecha_solicitud, fecha_cierre')
+    .eq('alumno_id', currentUser.id)
+    .eq('vehiculo_id', vehiculoId)
+    .then(function(res){
+      if(res.error){ console.error('Error cargando cierres:', res.error); return; }
+      (res.data||[]).forEach(function(c){
+        var opts=document.querySelectorAll('.proceso-opt');
+        opts.forEach(function(o){
+          var onclickAttr=o.getAttribute('onclick')||'';
+          if(onclickAttr.indexOf("'"+c.proceso+"'")<0) return;
+          var evaluado = c.nota_final!==null && c.nota_final!==undefined;
+          var entregado = c.alumno_solicita_cierre && !evaluado;
+          if(!evaluado && !entregado) return;
+          o.classList.add('locked');
+          o.classList.add(evaluado?'evaluado':'entregado');
+          var badge=document.createElement('span');
+          badge.className='lock-badge';
+          badge.textContent=evaluado?'🔒':'⚡';
+          badge.title=evaluado?'Ya evaluado':'Ya entregado — esperando evaluación';
+          o.appendChild(badge);
+        });
+      });
+    });
 }
 
 function renderPiezasChips(){
@@ -1561,6 +1610,11 @@ function checkSig1(){
 // REGISTRO — PASO 2: PROCESO Y HORAS
 // ════════════════════════════════════════════
 function selectProceso(el, key){
+  if(el.classList.contains('locked')){
+    var esEval=el.classList.contains('evaluado');
+    toast(esEval?'🔒 Ya has entregado y evaluado este proceso en este vehículo.':'⚡ Ya has entregado este proceso. Espera a que el profesor lo evalúe.');
+    return;
+  }
   document.querySelectorAll('.proceso-opt').forEach(function(o){ o.classList.remove('selected'); });
   el.classList.add('selected');
   selProceso=key;
@@ -3221,58 +3275,124 @@ function cambiarResumenFase(alumnoKey, fase){
 
 
 function renderResumenAlumno(){
-  var horas = misJornadas.reduce(function(s,j){ return s+(j.horas||[]).length; },0);
-  var pc = {};
-  misJornadas.forEach(function(j){ pc[j.proceso]=(pc[j.proceso]||0)+1; });
+  // Vista "Entrega de procesos" del alumno: por vehiculo, con piezas y procesos con estado
   var wrap = document.getElementById('resumenContent');
   if(!wrap) return;
-  wrap.innerHTML =
-    '<div class="card"><div class="card-body">'+
+
+  var vehiculos = misVehiculos || [];
+  var jornadas  = misJornadas || [];
+
+  // Header con datos globales
+  var horasTot = jornadas.reduce(function(s,j){ return s+(j.horas||[]).length; },0);
+  var html = '<div class="card"><div class="card-body">'+
     '<div style="display:flex;flex-direction:column;gap:8px">'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">👷 Alumno</span>'+
+      '<span style="font-weight:700;color:var(--text-dim)">\uD83D\uDC77 Alumno</span>'+
       '<span style="font-weight:800">'+(currentUser.nombre||'')+' '+(currentUser.apellidos||'')+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">🏫 Grupo</span>'+
-      '<span style="font-weight:800">'+(currentUser.grupo||'—')+'</span></div>'+
+      '<span style="font-weight:700;color:var(--text-dim)">\uD83C\uDFEB Grupo</span>'+
+      '<span style="font-weight:800">'+(currentUser.grupo||'\u2014')+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">🚗 Vehículos</span>'+
-      '<span style="font-weight:800">'+misVehiculos.length+'</span></div>'+
+      '<span style="font-weight:700;color:var(--text-dim)">\uD83D\uDE97 Veh\u00EDculos</span>'+
+      '<span style="font-weight:800">'+vehiculos.length+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">'+
-      '<span style="font-weight:700;color:var(--text-dim)">📅 Jornadas</span>'+
-      '<span style="font-weight:800">'+misJornadas.length+'</span></div>'+
+      '<span style="font-weight:700;color:var(--text-dim)">\uD83D\uDCC5 Jornadas</span>'+
+      '<span style="font-weight:800">'+jornadas.length+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0">'+
-      '<span style="font-weight:700;color:var(--text-dim)">🕐 Clases totales</span>'+
-      '<span style="font-weight:800">'+horas+'</span></div>'+
-    '</div></div></div>'+
-    (Object.keys(pc).length ?
-      '<div class="section-title">🛠️ Procesos trabajados</div>'+
-      '<div class="card"><div class="card-body">'+
-      Object.keys(pc).map(function(k){
-        var p = PROCESOS[k]||{icon:'🔧',name:k};
-        var estado = misResumenEstados[k]||'en_curso';
-        var fecha  = misFechasSolicitud[k]||'';
-        var badge = estado==='evaluado'
-          ? '<span style="background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">✅ Evaluado'+(fecha?' · '+fecha:'')+'</span>'
-          : estado==='solicitado'
-          ? '<span style="background:rgba(230,81,0,.12);border:1px solid rgba(230,81,0,.4);color:#e65100;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">⚡ Entregado'+(fecha?' · '+fecha:'')+'</span>'
-          : '<span style="background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">🔄 En curso</span>';
-        var btn = estado==='en_curso'
-          ? '<div style="margin-top:8px"><button data-proceso="'+k+'" onclick="solicitarCierre(this)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 14px;font-weight:800;font-size:12px;cursor:pointer;width:100%">✋ He terminado — avisar al profesor</button></div>'
-          : '';
-        return '<div style="padding:10px 0;border-bottom:1px solid var(--border)">'+
-          '<div style="display:flex;justify-content:space-between;align-items:center">'+
-            '<span style="font-weight:700">'+p.icon+' '+p.name+'</span>'+
-            '<div style="display:flex;align-items:center;gap:8px">'+
-              '<span style="color:var(--text-dim);font-size:12px">'+pc[k]+' jornada'+(pc[k]!==1?'s':'')+'</span>'+
-              badge+
+      '<span style="font-weight:700;color:var(--text-dim)">\uD83D\uDD50 Clases totales</span>'+
+      '<span style="font-weight:800">'+horasTot+'</span></div>'+
+    '</div></div></div>';
+
+  if(!vehiculos.length){
+    html+='<div style="text-align:center;padding:32px 16px;color:var(--text-dim)">'+
+      '<div style="font-size:42px;margin-bottom:10px">\uD83D\uDE97</div>'+
+      '<div style="font-weight:800;font-size:15px;margin-bottom:4px">Todav\u00EDa no tienes veh\u00EDculos asignados</div>'+
+      '<div style="font-size:12px">Da de alta un veh\u00EDculo desde la pesta\u00F1a "Veh\u00EDculo".</div>'+
+    '</div>';
+    wrap.innerHTML=html;
+    return;
+  }
+
+  html+='<div class="section-title">\uD83D\uDE97 Mis veh\u00EDculos y procesos</div>';
+
+  vehiculos.forEach(function(v){
+    var vNombre = ((v.marca||'')+' '+(v.modelo||'')+(v.anio?' '+v.anio:'')).trim() || 'Veh\u00EDculo';
+    var jornadasV = jornadas.filter(function(j){ return j.vehiculo_id===v.id; });
+
+    // Procesos con jornadas en este vehiculo
+    var procesosMap = {};
+    jornadasV.forEach(function(j){
+      if(!j.proceso) return;
+      if(!procesosMap[j.proceso]) procesosMap[j.proceso]={ count:0, piezasSet:{} };
+      procesosMap[j.proceso].count++;
+      // Agregar piezas trabajadas de esta jornada
+      if(j.piezas_texto){
+        j.piezas_texto.split(/[|,\/]/).forEach(function(p){
+          var pn=p.trim(); if(pn) procesosMap[j.proceso].piezasSet[pn]=true;
+        });
+      }
+    });
+
+    // Ordenar por orden curricular
+    var ordenProc=['desabollado','plasticos','enmasillado','aparejado','enmascarado','limpieza','pintado','barnizado','correccion'];
+    var procKeys=ordenProc.filter(function(k){ return procesosMap[k]; });
+
+    html+='<div class="card" style="margin-bottom:14px"><div class="card-body">';
+    html+='<div style="display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px">'+
+      '<span style="font-size:22px">\uD83D\uDE97</span>'+
+      '<div style="flex:1">'+
+        '<div style="font-family:Barlow Condensed,sans-serif;font-weight:900;font-size:18px">'+escHtmlAlu(vNombre)+'</div>'+
+        (v.matricula?'<div style="font-size:11px;color:var(--text-dim)">'+escHtmlAlu(v.matricula)+(v.color?' \u00B7 '+escHtmlAlu(v.color):'')+'</div>':'')+
+      '</div>'+
+    '</div>';
+
+    if(!procKeys.length){
+      html+='<div style="padding:14px;text-align:center;color:var(--text-dim);font-size:13px;font-style:italic">A\u00FAn no has registrado ninguna jornada en este veh\u00EDculo.</div>';
+    } else {
+      procKeys.forEach(function(procKey){
+        var p = PROCESOS[procKey]||{icon:'\uD83D\uDD27',name:procKey};
+        var info = procesosMap[procKey];
+        // Estado desde misVehProcEstados keyed por vid_proceso
+        var estKey = v.id+'_'+procKey;
+        var estado = misVehProcEstados[estKey] || 'en_curso';
+        var fecha  = misVehProcFechas[estKey] || '';
+        var nota   = misVehProcNotas[estKey];
+        var piezasArr = Object.keys(info.piezasSet);
+        var piezasTxt = piezasArr.length?piezasArr.join(' \u00B7 '):'\u2014';
+
+        var badge, btnHtml='';
+        if(estado==='evaluado'){
+          var notaColor = (nota!==null&&nota!==undefined&&nota>=8)?'#22c55e':(nota>=5?'#f97316':'#ef4444');
+          var notaTxt = (nota!==null&&nota!==undefined)?' \u00B7 <strong style="color:'+notaColor+'">'+Number(nota).toFixed(1)+'</strong>':'';
+          badge='<span style="background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">\u2705 Evaluado'+(fecha?' \u00B7 '+fecha:'')+notaTxt+'</span>';
+        } else if(estado==='solicitado'){
+          badge='<span style="background:rgba(230,81,0,.12);border:1px solid rgba(230,81,0,.4);color:#e65100;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">\u26A1 Entregado'+(fecha?' \u00B7 '+fecha:'')+'</span>';
+        } else {
+          badge='<span style="background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">\uD83D\uDD04 En curso</span>';
+          btnHtml='<button data-vid="'+v.id+'" data-proceso="'+procKey+'" onclick="entregarProceso(this)" style="margin-top:8px;width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:10px 14px;font-weight:800;font-size:13px;cursor:pointer">\u270B Entregar proceso</button>';
+        }
+
+        html+='<div style="padding:10px 0;border-bottom:1px solid var(--border)">'+
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+            '<div style="flex:1;min-width:0">'+
+              '<div style="font-weight:800;font-size:14px">'+p.icon+' '+p.name+'</div>'+
+              '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">\uD83D\uDD29 '+escHtmlAlu(piezasTxt)+'</div>'+
+              '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">\uD83D\uDCC5 '+info.count+' jornada'+(info.count!==1?'s':'')+'</div>'+
             '</div>'+
+            badge+
           '</div>'+
-          btn+
+          btnHtml+
         '</div>';
-      }).join('')+
-      '</div></div>' : '');
+      });
+    }
+    html+='</div></div>';
+  });
+
+  wrap.innerHTML=html;
 }
+
+// Helper para escapar en el lado alumno (por si escHtml no está disponible)
+function escHtmlAlu(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 
 // ══════════════════════════════════════════
@@ -3455,59 +3575,88 @@ function abrirGestion(){
 }
 
 
-// ── ALUMNO: solicitar cierre de proceso
-var misResumenEstados = {};
-var misFechasSolicitud = {};
+// ── ALUMNO: estado por vehículo + proceso
+var misResumenEstados = {};    // por proceso (para el historial simple, retrocompatible)
+var misFechasSolicitud = {};   // por proceso (retrocompatible)
+var misVehProcEstados = {};    // key: "vehiculoId_proceso" → 'en_curso'|'solicitado'|'evaluado'
+var misVehProcFechas  = {};    // key: "vehiculoId_proceso" → fecha
+var misVehProcNotas   = {};    // key: "vehiculoId_proceso" → nota_final
+var misVehProcIds     = {};    // key: "vehiculoId_proceso" → cierre id (para update)
 
 async function cargarEstadosProcesos(){
   try{
-    var res = await sb.from('cierres').select('proceso, alumno_solicita_cierre, nota_final, fecha_solicitud, fecha_cierre').eq('alumno_id', currentUser.id);
+    var res = await sb.from('cierres')
+      .select('id, proceso, vehiculo_id, alumno_solicita_cierre, nota_final, fecha_solicitud, fecha_cierre')
+      .eq('alumno_id', currentUser.id);
     if(res.error) throw res.error;
     misResumenEstados = {};
     misFechasSolicitud = {};
+    misVehProcEstados = {};
+    misVehProcFechas = {};
+    misVehProcNotas = {};
+    misVehProcIds = {};
     (res.data||[]).forEach(function(c){
-      if(c.nota_final !== null){ misResumenEstados[c.proceso] = 'evaluado'; misFechasSolicitud[c.proceso] = c.fecha_cierre||''; }
-      else if(c.alumno_solicita_cierre){ misResumenEstados[c.proceso] = 'solicitado'; misFechasSolicitud[c.proceso] = c.fecha_solicitud||''; }
-      else { misResumenEstados[c.proceso] = 'en_curso'; }
+      var estado, fecha;
+      if(c.nota_final !== null && c.nota_final !== undefined){ estado='evaluado'; fecha=c.fecha_cierre||''; }
+      else if(c.alumno_solicita_cierre){ estado='solicitado'; fecha=c.fecha_solicitud||''; }
+      else { estado='en_curso'; fecha=''; }
+      // Global por proceso (para historial simple)
+      misResumenEstados[c.proceso] = estado;
+      misFechasSolicitud[c.proceso] = fecha;
+      // Por vehiculo + proceso (para la vista nueva)
+      if(c.vehiculo_id){
+        var k = c.vehiculo_id+'_'+c.proceso;
+        misVehProcEstados[k] = estado;
+        misVehProcFechas[k]  = fecha;
+        misVehProcNotas[k]   = c.nota_final;
+        misVehProcIds[k]     = c.id;
+      }
     });
-  }catch(e){ misResumenEstados = {}; misFechasSolicitud = {}; }
+  }catch(e){
+    misResumenEstados = {}; misFechasSolicitud = {};
+    misVehProcEstados = {}; misVehProcFechas = {}; misVehProcNotas = {}; misVehProcIds = {};
+    console.error('cargarEstadosProcesos error:', e);
+  }
 }
 
-async function solicitarCierre(btn){
+async function entregarProceso(btn){
   var proceso = btn.getAttribute('data-proceso');
-  if(!proceso) return;
+  var vid = btn.getAttribute('data-vid');
+  if(!proceso || !vid) return;
   var p = PROCESOS[proceso]||{name:proceso};
-  if(!confirm('¿Confirmas que has terminado ' + p.name + '?\nEl profesor recibirá el aviso.')){return;}
+  // Nombre del vehículo para el confirm
+  var v = (misVehiculos||[]).find(function(x){ return x.id===vid; });
+  var vName = v?((v.marca||'')+' '+(v.modelo||'')).trim():'este vehículo';
+  if(!confirm('¿Confirmas que has terminado el proceso "'+p.name+'" en '+vName+'?\n\nUna vez entregado no podrás añadir más jornadas de este proceso en este vehículo. El profesor recibirá el aviso para evaluarlo.')){ return; }
   btn.disabled = true;
   btn.textContent = '⏳ Enviando aviso...';
   try{
-    // Verificar si ya existe un cierre para este proceso
-    var resCheck = await sb.from('cierres').select('id').eq('alumno_id', currentUser.id).eq('proceso', proceso);
-    if(resCheck.error) throw resCheck.error;
-    
+    var k = vid+'_'+proceso;
+    var existingId = misVehProcIds[k];
     var resOp;
-    if(resCheck.data && resCheck.data.length > 0){
-      // Actualizar el existente
+    var fechaSol = new Date().toLocaleDateString('es-ES');
+    if(existingId){
       resOp = await sb.from('cierres')
-        .update({ alumno_solicita_cierre: true, fecha_solicitud: new Date().toLocaleDateString('es-ES') })
-        .eq('id', resCheck.data[0].id);
+        .update({ alumno_solicita_cierre: true, fecha_solicitud: fechaSol })
+        .eq('id', existingId);
     } else {
-      // Insertar nuevo
       resOp = await sb.from('cierres')
-        .insert({ alumno_id: currentUser.id, proceso: proceso, alumno_solicita_cierre: true, fecha_solicitud: new Date().toLocaleDateString('es-ES') });
+        .insert({ alumno_id: currentUser.id, vehiculo_id: vid, proceso: proceso, alumno_solicita_cierre: true, fecha_solicitud: fechaSol });
     }
     if(resOp.error) throw resOp.error;
-    
-    misResumenEstados[proceso] = 'solicitado';
-    toast('✅ Aviso enviado al profesor');
-    cargarEstadosProcesos().then(renderResumenAlumno);
+    toast('✅ Proceso entregado. Ya no puedes añadir más jornadas.');
+    await cargarEstadosProcesos();
+    renderResumenAlumno();
   }catch(e){
-    toast('❌ Error: ' + e.message);
+    toast('❌ Error: ' + (e.message||e));
     btn.disabled = false;
-    btn.textContent = '✋ He terminado — avisar al profesor';
-    console.error('solicitarCierre error:', e);
+    btn.textContent = '✋ Entregar proceso';
+    console.error('entregarProceso error:', e);
   }
 }
+
+// Compat: mantener solicitarCierre por si algún botón antiguo la llama
+async function solicitarCierre(btn){ return entregarProceso(btn); }
 
 
 // ══════════════════════════════════════════
