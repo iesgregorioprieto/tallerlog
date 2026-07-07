@@ -2653,7 +2653,7 @@ async function abrirAlumno(alumnoId){
     cierresRows.forEach(function(c){
       var vid = c.vehiculo_id || '__sv__';
       var key = alumnoId+'_'+vid+'_'+c.proceso;
-      cierresCache[key] = { ceEvals: c.ce_evaluaciones||{}, nota: c.nota_final, fecha: c.fecha_cierre, dbId: c.id, alumno_solicita_cierre: c.alumno_solicita_cierre||false };
+      cierresCache[key] = { ceEvals: c.ce_evaluaciones||{}, nota: c.nota_final, fecha: c.fecha_cierre, fecha_solicitud: c.fecha_solicitud||null, dbId: c.id, alumno_solicita_cierre: c.alumno_solicita_cierre||false };
     });
 
     renderFichaAlumno(alumnoId);
@@ -2687,7 +2687,7 @@ function renderFichaAlumno(alumnoId){
   html += '<div class="alumno-tabs">'+
     '<button class="alumno-tab'+(activeTab==='registros'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'registros\')">📋 Registros</button>'+
     '<button class="alumno-tab'+(activeTab==='evaluacion'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'evaluacion\')">📊 Evaluación</button>'+
-    '<button class="alumno-tab'+(activeTab==='resumen'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'resumen\')">📈 Resumen notas</button>'+
+    '<button class="alumno-tab'+(activeTab==='resumen'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'resumen\')">📦 Entrega de procesos</button>'+
   '</div>';
 
   if(!regs.length){
@@ -3105,103 +3105,119 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
 }
 
 function renderResumen(alumnoKey, regs, cierres, faseActiva){
-  var fasesOrden=['enmasillado','aparejado','enmascarado','limpieza','pintado','barnizado','correccion'];
-  var vehIds=[]; regs.forEach(function(r){ var id=r.vehiculoId||'__sv__'; if(vehIds.indexOf(id)<0) vehIds.push(id); });
-  var fasesConDatos=fasesOrden.filter(function(f){ return regs.some(function(r){ return r.proceso===f; }); });
-  if(!fasesConDatos.length) return '<div class="card"><p style="color:var(--text-dim);text-align:center;padding:32px">Aún no hay procesos evaluados.</p></div>';
+  // Vista "Entrega de procesos": seguimiento global por vehiculo+proceso
+  var fasesOrden=['desabollado','plasticos','enmasillado','aparejado','enmascarado','limpieza','pintado','barnizado','correccion'];
+  var data=alumnosCache[alumnoKey];
+  var vehMap={};
+  if(data && data.vehiculos) data.vehiculos.forEach(function(v){ vehMap[v.id]=v; });
 
-  var faseVista=faseActiva||fasesConDatos[0];
-
-  var html='<div class="fase-resumen-tabs">';
-  fasesConDatos.forEach(function(f){
-    var nDias=regs.filter(function(r){return r.proceso===f;}).length;
-    html+='<div class="fase-resumen-tab'+(f===faseVista?' active':'')+'" onclick="cambiarResumenFase(\''+alumnoKey+'\',\''+f+'\')">'+
-      (FASE_NAMES[f]||f)+' <span style="font-weight:400;font-size:11px">('+nDias+'d)</span></div>';
+  // Vehiculos con jornadas (en orden de aparicion)
+  var vehIds=[];
+  regs.forEach(function(r){
+    var id=r.vehiculoId||'__sv__';
+    if(vehIds.indexOf(id)<0) vehIds.push(id);
   });
-  html+='</div>';
 
-  // Calcular nota de la fase (media de todos los cierres de esa fase)
-  var totalNota=0, cuentaNota=0;
+  if(!vehIds.length){
+    return '<div class="card"><p style="color:var(--text-dim);text-align:center;padding:32px">No hay procesos registrados todavia.</p></div>';
+  }
+
+  // Contadores globales
+  var nCerrados=0, nEntregados=0, nEnCurso=0, nTotal=0;
   vehIds.forEach(function(vid){
-    var c=cierres[alumnoKey+'_'+vid+'_'+faseVista];
-    if(c){ totalNota+=c.nota; cuentaNota++; }
+    var vRegs=regs.filter(function(r){return (r.vehiculoId||'__sv__')===vid;});
+    fasesOrden.forEach(function(fase){
+      if(!vRegs.some(function(r){return r.proceso===fase;})) return;
+      nTotal++;
+      var c=cierres[alumnoKey+'_'+vid+'_'+fase];
+      if(c && c.nota!==null && c.nota!==undefined){ nCerrados++; }
+      else if(c && c.alumno_solicita_cierre){ nEntregados++; }
+      else { nEnCurso++; }
+    });
   });
-  var notaMedia=cuentaNota>0?(totalNota/cuentaNota):null;
-  var notaColor=notaMedia===null?'var(--text-dim)':notaMedia>=8?'#22c55e':notaMedia>=5?'#f97316':'#ef4444';
 
-  html+='<div class="fase-resumen-card">'+
-    '<div class="fase-resumen-header">'+
-      '<div>'+
-        '<div class="fase-resumen-title">'+(FASE_NAMES[faseVista]||faseVista)+'</div>'+
-        '<div class="dias-badge" style="margin-top:6px">📅 '+regs.filter(function(r){return r.proceso===faseVista;}).length+' días registrados</div>'+
-      '</div>'+
-      '<div class="nota-final-chip">'+
-        '<div class="nota-final-valor" style="color:'+notaColor+'">'+(notaMedia!==null?notaMedia.toFixed(1):'—')+'</div>'+
-        '<div class="nota-final-label">Nota proceso</div>'+
-      '</div>'+
-    '</div>';
-
-  // Leyenda
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 16px;background:rgba(0,0,0,.04);border-bottom:1px solid var(--border)">';
-  CE_NIVELES.forEach(function(n){
-    html+='<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:'+n.color+'">'+
-      '<span style="width:16px;height:16px;border-radius:3px;background:'+n.bg+';border:1px solid '+n.color+';display:inline-flex;align-items:center;justify-content:center;font-size:9px">'+n.puntos+'</span>'+n.label+'</span>';
-  });
+  // Cabecera estadisticas
+  var html='<div style="display:flex;gap:10px;flex-wrap:wrap;padding:4px 0 18px">';
+  html+='<div style="background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.35);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:#22c55e">'+nCerrados+'</div>'+
+    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Cerrados</div></div>';
+  html+='<div style="background:rgba(230,81,0,.1);border:1px solid rgba(230,81,0,.35);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:#e65100">'+nEntregados+'</div>'+
+    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Entregados</div></div>';
+  html+='<div style="background:rgba(21,101,192,.08);border:1px solid rgba(21,101,192,.25);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:var(--accent)">'+nEnCurso+'</div>'+
+    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">En curso</div></div>';
+  html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:var(--text)">'+nTotal+'</div>'+
+    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Total</div></div>';
   html+='</div>';
 
-  // Acumular pips por CE
-  var criterios=CRITERIOS_EVALUACION[faseVista]||[];
-  criterios.forEach(function(ce){
-    var evaluaciones=[];
-    vehIds.forEach(function(vid){
-      var c=cierres[alumnoKey+'_'+vid+'_'+faseVista];
-      if(c){ var nId=(c.ceEvals||{})[ce.id]; var nivel=nId?CE_NIVELES.find(function(n){return n.id===nId;}):null; if(nivel) evaluaciones.push({nivel:nivel}); }
-    });
-    var media=evaluaciones.length>0?evaluaciones.reduce(function(s,e){return s+e.nivel.puntos;},0)/evaluaciones.length:null;
-    var mc=media===null?'var(--text-dim)':media>=8?'#22c55e':media>=5?'#f97316':'#ef4444';
-    var isEpi=ce.epi===true;
-    html+='<div class="ce-acum-row'+(isEpi?' ce-epi-highlight':'')+'">'+
-      '<div><div class="eval-ce-badge"'+(isEpi?' style="background:rgba(21,101,192,.18)"':'')+'>'+ce.ce+'</div>'+
-      '<div style="font-size:9px;color:var(--text-dim);text-align:center">'+ce.ra+'</div></div>'+
+  // Un panel por vehiculo
+  vehIds.forEach(function(vid){
+    var v=vehMap[vid];
+    var vNombre=v?((v.marca||'')+' '+(v.modelo||'')+(v.anio?' '+v.anio:'')).trim():'Sin vehiculo asignado';
+    var vRegs=regs.filter(function(r){return (r.vehiculoId||'__sv__')===vid;});
+    var fasesVeh=fasesOrden.filter(function(f){return vRegs.some(function(r){return r.proceso===f;});});
+    if(!fasesVeh.length) return;
+
+    html+='<div class="proceso-eval-panel" style="margin-bottom:16px">';
+    html+='<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(21,101,192,.1),rgba(21,101,192,.03));border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
+      '<span style="font-size:20px">\uD83D\uDE97</span>'+
       '<div>'+
-        '<div class="eval-texto" style="margin-bottom:5px">'+ce.texto+'</div>'+
-        '<div class="ce-acum-dias">'+
-        evaluaciones.map(function(e){
-          return '<span class="ce-dia-pip" style="background:'+e.nivel.bg+';border:1px solid '+e.nivel.color+';color:'+e.nivel.color+'">'+e.nivel.puntos+'</span>';
-        }).join('')+
-        (evaluaciones.length===0?'<span style="font-size:11px;color:var(--text-dim)">Sin evaluar</span>':'')+
-        '</div>'+
-      '</div>'+
-      '<div class="ce-acum-media">'+
-        (media!==null?'<div class="ce-media-num" style="color:'+mc+'">'+media.toFixed(1)+'</div><div class="ce-media-sub">'+evaluaciones.length+' veh.</div>':'<div class="ce-media-num" style="color:var(--text-dim)">—</div>')+
+        '<div style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:17px">'+escHtml(vNombre)+'</div>'+
+        (v&&v.matricula?'<div style="font-size:11px;color:var(--text-dim)">'+escHtml(v.matricula)+(v.color?' \u00B7 '+escHtml(v.color):'')+'</div>':'')+
       '</div>'+
     '</div>';
+
+    fasesVeh.forEach(function(fase){
+      var fRegs=vRegs.filter(function(r){return r.proceso===fase;});
+      // regs vienen en orden DESC => fRegs[0] es la mas reciente
+      var ultimaFecha=fRegs.length?fRegs[0].fecha:'\u2014';
+      var c=cierres[alumnoKey+'_'+vid+'_'+fase];
+      var esRec=CE_SOLO_RECORDATORIO.indexOf(fase)>=0;
+
+      var statusBadge, notaHtml='', fechaInfo='';
+      if(c && c.nota!==null && c.nota!==undefined){
+        var notaColor=Number(c.nota)>=8?'#22c55e':Number(c.nota)>=5?'#f97316':'#ef4444';
+        statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#22c55e">\uD83D\uDD12 Cerrado</span>';
+        if(!esRec) notaHtml='<span style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:900;line-height:1;color:'+notaColor+'">'+Number(c.nota).toFixed(1)+'</span>';
+        fechaInfo=c.fecha?'Cerrado: '+c.fecha:'';
+      } else if(c && c.alumno_solicita_cierre){
+        statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(230,81,0,.12);border:1px solid rgba(230,81,0,.4);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#e65100">\u26A1 Entregado</span>';
+        fechaInfo=c.fecha_solicitud?'Entregado: '+c.fecha_solicitud:'Entregado: '+ultimaFecha;
+      } else {
+        statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(21,101,192,.1);border:1px solid rgba(21,101,192,.3);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:var(--accent)">\uD83D\uDD04 En curso</span>';
+        fechaInfo='Ultima jornada: '+ultimaFecha;
+      }
+
+      var fLabelFull=FASE_NAMES[fase]||fase;
+      var fIcon=fLabelFull.split(' ')[0];
+
+      html+='<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border)">'+
+        '<div style="font-size:20px;width:28px;text-align:center;flex-shrink:0">'+fIcon+'</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-weight:800;font-size:13px">'+escHtml(fLabelFull.replace(/^.\s*/,''))+'</div>'+
+          '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">'+
+            '\uD83D\uDCC5 '+fRegs.length+' jornada'+(fRegs.length!==1?'s':'')+
+            (fechaInfo?' \u00A0\u00B7\u00A0 \uD83D\uDCCC '+escHtml(fechaInfo):'')+
+          '</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'+
+          notaHtml+
+          statusBadge+
+        '</div>'+
+      '</div>';
+    });
+
+    html+='</div>'; // cierre panel
   });
-  html+='</div>'; // cierre fase-resumen-card
+
   return html;
 }
 
 function cambiarResumenFase(alumnoKey, fase){
-  var data=alumnosCache[alumnoKey];
-  var cierres=getCierresCombinados();
-  var wrap=document.getElementById('mainContent');
-  // Reemplazar solo la parte de resumen (más fácil: rerenderizar todo)
-  verAlumno(alumnoKey,'resumen');
-  // Scroll al resumen
-  setTimeout(function(){ var t=document.querySelector('.fase-resumen-tabs'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); },100);
-  // Seleccionar la fase correcta — hay que re-llamar con la fase
-  var data2=alumnosCache[alumnoKey];
-  var regs=data2.registros;
-  var html_resumen=renderResumen(alumnoKey,regs,getCierresCombinados(),fase);
-  // Reemplazar solo la parte resumen dentro del content
-  var cont=document.getElementById('mainContent');
-  var tabsEl=cont.querySelector('.alumno-tabs');
-  if(tabsEl){
-    var afterTabs=tabsEl.nextSibling;
-    while(afterTabs){ var nx=afterTabs.nextSibling; cont.removeChild(afterTabs); afterTabs=nx; }
-    var tmp=document.createElement('div'); tmp.innerHTML=html_resumen;
-    while(tmp.firstChild) cont.appendChild(tmp.firstChild);
-  }
+  // La nueva vista "Entrega de procesos" no usa tabs de fase — simplemente rerenderizar
+  cambiarTab(alumnoKey, 'resumen');
 }
 
 
