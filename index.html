@@ -1448,11 +1448,17 @@ function renderUltimasJornadas(){
   }
   wrap.innerHTML = regs.map(function(r){
     var p=PROCESOS[r.proceso]||{icon:'🔧',name:r.proceso};
+    var estadoHist=misResumenEstados[r.proceso]||'en_curso';
+    var badgeHist=estadoHist==='evaluado'
+      ?'<span class="reg-status" style="margin-left:auto;background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)">✅ Evaluado</span>'
+      :estadoHist==='solicitado'
+      ?'<span class="reg-status" style="margin-left:auto;background:rgba(230,81,0,.12);color:#e65100;border:1px solid rgba(230,81,0,.4)">⚡ Entregado</span>'
+      :'<span class="reg-status pendiente" style="margin-left:auto">🔄 En curso</span>';
     return '<div class="reg-card"><div class="reg-head">'+
       '<span>📅</span><span class="reg-fecha">'+r.fecha+'</span>'+
       '<span class="reg-fase-badge">'+p.icon+' '+p.name+'</span>'+
-      '<span class="reg-status pendiente" style="margin-left:auto">⏳ Pendiente</span>'+
-      '</div><div class="reg-body">⏱️ '+( Array.isArray(r.horas)?r.horas.reduce(function(a,b){return a+b;},0):0)+'h &nbsp;·&nbsp; 🔩 '+r.piezasTexto+'</div></div>';
+      badgeHist+
+      '</div><div class="reg-body">⏱️ '+(Array.isArray(r.horas)?r.horas.reduce(function(a,b){return a+b;},0):0)+'h &nbsp;·&nbsp; 🔩 '+r.piezasTexto+'</div></div>';
   }).join('');
 }
 
@@ -3267,11 +3273,12 @@ function renderResumenAlumno(){
       Object.keys(pc).map(function(k){
         var p = PROCESOS[k]||{icon:'🔧',name:k};
         var estado = misResumenEstados[k]||'en_curso';
+        var fecha  = misFechasSolicitud[k]||'';
         var badge = estado==='evaluado'
-          ? '<span style="background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">✅ Evaluado</span>'
+          ? '<span style="background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">✅ Evaluado'+(fecha?' · '+fecha:'')+'</span>'
           : estado==='solicitado'
-          ? '<span style="background:#e3f2fd;border:1px solid var(--accent2);color:var(--accent);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">⏳ Pendiente</span>'
-          : '<span style="background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">🔄 En curso</span>';
+          ? '<span style="background:rgba(230,81,0,.12);border:1px solid rgba(230,81,0,.4);color:#e65100;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">⚡ Entregado'+(fecha?' · '+fecha:'')+'</span>'
+          : '<span style="background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">🔄 En curso</span>';
         var btn = estado==='en_curso'
           ? '<div style="margin-top:8px"><button data-proceso="'+k+'" onclick="solicitarCierre(this)" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 14px;font-weight:800;font-size:12px;cursor:pointer;width:100%">✋ He terminado — avisar al profesor</button></div>'
           : '';
@@ -3472,18 +3479,20 @@ function abrirGestion(){
 
 // ── ALUMNO: solicitar cierre de proceso
 var misResumenEstados = {};
+var misFechasSolicitud = {};
 
 async function cargarEstadosProcesos(){
   try{
-    var res = await sb.from('cierres').select('proceso, alumno_solicita_cierre, nota_final').eq('alumno_id', currentUser.id);
+    var res = await sb.from('cierres').select('proceso, alumno_solicita_cierre, nota_final, fecha_solicitud, fecha_cierre').eq('alumno_id', currentUser.id);
     if(res.error) throw res.error;
     misResumenEstados = {};
+    misFechasSolicitud = {};
     (res.data||[]).forEach(function(c){
-      if(c.nota_final !== null){ misResumenEstados[c.proceso] = 'evaluado'; }
-      else if(c.alumno_solicita_cierre){ misResumenEstados[c.proceso] = 'solicitado'; }
+      if(c.nota_final !== null){ misResumenEstados[c.proceso] = 'evaluado'; misFechasSolicitud[c.proceso] = c.fecha_cierre||''; }
+      else if(c.alumno_solicita_cierre){ misResumenEstados[c.proceso] = 'solicitado'; misFechasSolicitud[c.proceso] = c.fecha_solicitud||''; }
       else { misResumenEstados[c.proceso] = 'en_curso'; }
     });
-  }catch(e){ misResumenEstados = {}; }
+  }catch(e){ misResumenEstados = {}; misFechasSolicitud = {}; }
 }
 
 async function solicitarCierre(btn){
