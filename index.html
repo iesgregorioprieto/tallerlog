@@ -3502,114 +3502,79 @@ async function solicitarCierre(btn){
 // ══════════════════════════════════════════
 function renderTablaProcesoCompleto(fase, fRegs, cierres, alumnoKey, vid){
   var fLabel = FASE_NAMES[fase] || fase;
-  var clData = CHECKLISTS_DATA[fase];
-  var totalHoras = fRegs.reduce(function(s,r){ return s + (Array.isArray(r.horas)?r.horas.length:0); }, 0);
-  var totalCheck = 0, doneCheck = 0;
+  var totalHoras = fRegs.reduce(function(s,r){ return s+(Array.isArray(r.horas)?r.horas.length:0); }, 0);
+  var episOk=0, episTotal=0;
+  var EPIS_K=['ropa','botas','guantes','gafas','casco','mascarilla'];
+  fRegs.forEach(function(r){ EPIS_K.forEach(function(ek){ episTotal++; if((r.epis||{})[ek]) episOk++; }); });
+  var pctEpi=episTotal>0?Math.round(episOk/episTotal*100):0;
+  var epiColor=pctEpi>=90?'var(--success)':pctEpi>=70?'var(--warning)':'var(--danger)';
+
+  var html='<div class="proceso-resumen-bar">'+
+    '<span class="proceso-resumen-stat">\u{1F4C5} '+fRegs.length+' jornada'+(fRegs.length!==1?'s':'')+'</span>'+
+    '<span class="proceso-resumen-stat">\u{1F550} '+totalHoras+' clases</span>'+
+    '<span class="proceso-resumen-stat" style="color:'+epiColor+'">\u{1F9BA} EPIs: '+pctEpi+'%</span>'+
+  '</div>';
+
+  // Cabecera tabla
+  html+='<div style="overflow-x:auto"><table class="tabla-proceso"><thead><tr><th class="item-col">\u{1F4CB} \u{00CD}tem</th>';
   fRegs.forEach(function(r){
-    var cl = r.checkData||{};
-    var keys = Object.keys(cl);
-    totalCheck += keys.length;
-    doneCheck += keys.filter(function(k){ return cl[k]; }).length;
+    html+='<th>\u{1F4C5} '+r.fecha+'<br><span style="font-size:10px;opacity:.8">'+(Array.isArray(r.horas)?r.horas.length:0)+'h</span></th>';
   });
-  var pctCheck = totalCheck>0 ? Math.round(doneCheck/totalCheck*100) : 0;
-  var pctColor = pctCheck>=80?'var(--success)':pctCheck>=50?'var(--warning)':'var(--danger)';
+  html+='</tr></thead><tbody>';
 
-  // Resumen rápido
-  var html = '<div class="proceso-resumen-bar">';
-  html += '<span class="proceso-resumen-stat">📅 '+fRegs.length+' jornada'+(fRegs.length!==1?'s':'')+'</span>';
-  html += '<span class="proceso-resumen-stat">🕐 '+totalHoras+' clases</span>';
-  html += '<span class="proceso-resumen-stat" style="color:'+pctColor+'">✅ Checklist: '+pctCheck+'%</span>';
-  // EPIs resumen
-  var episOk = 0, episTotal = 0;
-  var EPIS_K = ['ropa','botas','guantes','gafas','casco','mascarilla'];
-  fRegs.forEach(function(r){
-    EPIS_K.forEach(function(k){ episTotal++; if((r.epis||{})[k]) episOk++; });
-  });
-  var pctEpi = episTotal>0 ? Math.round(episOk/episTotal*100) : 0;
-  var epiColor = pctEpi>=90?'var(--success)':pctEpi>=70?'var(--warning)':'var(--danger)';
-  html += '<span class="proceso-resumen-stat" style="color:'+epiColor+'">🦺 EPIs: '+pctEpi+'%</span>';
-  html += '</div>';
+  // Datos técnicos por proceso
+  var EXTRAS_DEF={
+    desabollado:[{k:'herramientas',lbl:'Herramientas utilizadas'},{k:'ajustes',lbl:'Ajustes del equipo/spotter'}],
+    plasticos:[{k:'codigo_plastico',lbl:'Código del plástico'},{k:'tipo_plastico',lbl:'Tipo plástico (PP/ABS/PC...)'},{k:'metodo_reparacion',lbl:'Método de reparación'}],
+    enmasillado:[{k:'tipo_masilla',lbl:'Tipo de masilla'},{k:'proporcion_masilla',lbl:'Proporción de mezcla'},{k:'tsecado',lbl:'Tiempo de secado'},{k:'escala_lijado',lbl:'Escala de lijado'},{k:'metodo_lijado',lbl:'Método lijado (mano/máquina)'},{k:'ir_secado',lbl:'Secado con infrarrojos'}],
+    aparejado:[{k:'marca_aparejo',lbl:'Marca del aparejo'},{k:'catalizador',lbl:'Catalizador'},{k:'diluyente',lbl:'Diluyente'},{k:'metodo_mezcla',lbl:'Método de mezcla'},{k:'tono_aparejo',lbl:'Tono del aparejo'},{k:'ir_aparejo',lbl:'Secado infrarrojos'}],
+    enmascarado:[{k:'tipo_enmascarado',lbl:'Tipo de enmascarado'},{k:'materiales_enmascarado',lbl:'Materiales utilizados'}],
+    limpieza:[{k:'producto_limpieza',lbl:'Producto de limpieza'}],
+    pintado:[{k:'acabado_pintura',lbl:'Acabado (sólido/metalizado/perlado)'},{k:'efecto_pintura',lbl:'Efecto'},{k:'codigo_color',lbl:'Código de color'},{k:'formula_basicos',lbl:'Fórmula/básicos'},{k:'pistola_pint',lbl:'Pistola'},{k:'presion_trabajo',lbl:'Presión (bar)'},{k:'num_manos_pint',lbl:'Nº de manos'},{k:'vida_util_pint',lbl:'Vida útil mezcla'},{k:'tsecado_pint',lbl:'Tiempo secado'},{k:'cov_pint',lbl:'COV (g/l)'}],
+    barnizado:[{k:'producto_barniz',lbl:'Producto barniz'},{k:'catalizador_barn',lbl:'Catalizador'},{k:'diluyente_barn',lbl:'Diluyente'},{k:'pistola_barn',lbl:'Pistola'},{k:'num_manos_barn',lbl:'Nº manos'},{k:'evap_manos_barn',lbl:'Evap. entre manos'},{k:'vida_util_barn',lbl:'Vida útil mezcla'},{k:'tevap_barn',lbl:'Tiempo evaporación'},{k:'cov_barn',lbl:'COV (g/l)'}],
+    correccion:[{k:'tipo_defecto',lbl:'Tipo de defecto'},{k:'proceso_corr',lbl:'Proceso de corrección'},{k:'productos_corr',lbl:'Productos utilizados'},{k:'utiles_corr',lbl:'Útiles y máquinas'}]
+  };
 
-  // Tabla
-  html += '<div style="overflow-x:auto"><table class="tabla-proceso"><thead><tr>';
-  html += '<th class="item-col">Ítem / Jornada</th>';
-  fRegs.forEach(function(r){
-    html += '<th>📅 '+r.fecha+'<br><span style="font-size:10px;opacity:.8">'+(Array.isArray(r.horas)?r.horas.length:0)+'h</span></th>';
-  });
-  html += '</tr></thead><tbody>';
-
-  // ── SECCIÓN: Checklist del proceso
-  if(clData && clData.secciones){
-    clData.secciones.forEach(function(sec){
-      // Cabecera de sección
-      html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">'+sec.titulo+'</td></tr>';
-      sec.items.forEach(function(item){
-        html += '<tr><td class="item-label">'+item.lbl+'</td>';
-        fRegs.forEach(function(r){
-          var cl = r.checkData||{};
-          var val = cl[item.k];
-          if(val===true) html += '<td><span class="tabla-ok">✓</span></td>';
-          else if(val===false) html += '<td><span class="tabla-ko">✗</span></td>';
-          else html += '<td><span class="tabla-empty">—</span></td>';
-        });
-        html += '</tr>';
-      });
-    });
-  }
-
-  // ── SECCIÓN: EPIs
-  html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">🦺 Equipos de Protección Individual</td></tr>';
-  var EPIS_LIST2 = [{k:'ropa',lbl:'Ropa trabajo'},{k:'botas',lbl:'Botas seguridad'},{k:'guantes',lbl:'Guantes'},{k:'gafas',lbl:'Gafas'},{k:'casco',lbl:'Casco'},{k:'mascarilla',lbl:'Mascarilla'}];
-  EPIS_LIST2.forEach(function(e){
-    html += '<tr><td class="item-label">'+e.lbl+'</td>';
-    fRegs.forEach(function(r){
-      var val = (r.epis||{})[e.k];
-      if(val===true) html += '<td><span class="tabla-ok">✓</span></td>';
-      else if(val===false) html += '<td><span class="tabla-ko">✗</span></td>';
-      else html += '<td><span class="tabla-empty">—</span></td>';
-    });
-    html += '</tr>';
-  });
-
-  // ── SECCIÓN: Datos técnicos (extras)
-  // Recopilar todas las claves de extras en todas las jornadas
-  var extraKeys = [];
-  fRegs.forEach(function(r){
-    Object.keys(r.extras||{}).forEach(function(k){
-      if(extraKeys.indexOf(k)<0 && (r.extras||{})[k]) extraKeys.push(k);
-    });
-  });
-  if(extraKeys.length){
-    html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">🔬 Datos técnicos del proceso</td></tr>';
-    extraKeys.forEach(function(k){
-      html += '<tr><td class="item-label">'+k.replace(/_/g,' ')+'</td>';
+  var extras = EXTRAS_DEF[fase]||[];
+  if(extras.length){
+    html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F52C} Datos técnicos del proceso</td></tr>';
+    extras.forEach(function(ex){
+      html+='<tr><td class="item-label">'+ex.lbl+'</td>';
       fRegs.forEach(function(r){
-        var val = (r.extras||{})[k];
-        html += '<td>'+(val?'<span class="tabla-val">'+val+'</span>':'<span class="tabla-empty">—</span>')+'</td>';
+        var val=(r.extras||{})[ex.k]||(r.checkExtras||{})[ex.k];
+        html+='<td>'+(val?'<span class="tabla-val">'+val+'</span>':'<span class="tabla-empty">—</span>')+'</td>';
       });
-      html += '</tr>';
+      html+='</tr>';
     });
   }
 
-  // ── SECCIÓN: Piezas trabajadas
-  html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">🔩 Piezas trabajadas</td></tr>';
-  html += '<tr><td class="item-label">Piezas</td>';
-  fRegs.forEach(function(r){
-    var piezas = r.piezasTexto || '—';
-    html += '<td><span class="tabla-val" style="font-size:10px">'+piezas+'</span></td>';
+  // EPIs
+  html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F9BA} Equipos de Protección Individual</td></tr>';
+  [{k:'ropa',lbl:'Ropa de trabajo'},{k:'botas',lbl:'Botas de seguridad'},{k:'guantes',lbl:'Guantes'},{k:'gafas',lbl:'Gafas de protección'},{k:'casco',lbl:'Casco'},{k:'mascarilla',lbl:'Mascarilla/Respirador'}].forEach(function(e){
+    html+='<tr><td class="item-label">'+e.lbl+'</td>';
+    fRegs.forEach(function(r){
+      var val=(r.epis||{})[e.k];
+      html+='<td>'+(val===true?'<span class="tabla-ok">\u2713</span>':val===false?'<span class="tabla-ko">\u2717</span>':'<span class="tabla-empty">—</span>')+'</td>';
+    });
+    html+='</tr>';
   });
-  html += '</tr>';
 
-  // ── SECCIÓN: Observaciones
-  html += '<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">💬 Observaciones del alumno</td></tr>';
-  html += '<tr><td class="item-label">Observaciones</td>';
+  // Piezas
+  html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F527} Piezas trabajadas</td></tr>';
+  html+='<tr><td class="item-label">Piezas</td>';
+  fRegs.forEach(function(r){ html+='<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+(r.piezasTexto||'—')+'</span></td>'; });
+  html+='</tr>';
+
+  // Observaciones
+  html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F4AC} Observaciones del alumno</td></tr>';
+  html+='<tr><td class="item-label">Observaciones</td>';
   fRegs.forEach(function(r){
-    var obs = r.observaciones ? r.observaciones.substring(0,60)+(r.observaciones.length>60?'...':'') : '—';
-    html += '<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+escHtml(obs)+'</span></td>';
+    var obs=r.observaciones?escHtml(r.observaciones.substring(0,80))+(r.observaciones.length>80?'...':''):'—';
+    html+='<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+obs+'</span></td>';
   });
-  html += '</tr>';
+  html+='</tr>';
 
-  html += '</tbody></table></div>';
+  html+='</tbody></table></div>';
   return html;
 }
 
