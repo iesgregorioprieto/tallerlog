@@ -2638,6 +2638,7 @@ async function abrirAlumno(alumnoId){
         piezas: (j.piezas_detalle||[]).map(function(p){ return p.nombre || p; }),
         checkDone: j.check_done || 0,
         checkTotal: j.check_total || 0,
+        checkData: j.checklist_taller || {},
         epis: j.epi || {},
         danosCarroceria: j.danos_vehiculo || {},
         observaciones: j.observaciones || '',
@@ -3144,12 +3145,9 @@ function renderResumen(alumnoKey, regs, cierres, faseActiva){
   html+='<div style="background:rgba(230,81,0,.1);border:1px solid rgba(230,81,0,.35);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
     '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:#e65100">'+nEntregados+'</div>'+
     '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Entregados</div></div>';
-  html+='<div style="background:rgba(21,101,192,.08);border:1px solid rgba(21,101,192,.25);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
-    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:var(--accent)">'+nEnCurso+'</div>'+
-    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">En curso</div></div>';
   html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
-    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:var(--text)">'+nTotal+'</div>'+
-    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Total</div></div>';
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:var(--text-dim)">'+nEnCurso+'</div>'+
+    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">En curso</div></div>';
   html+='</div>';
 
   // Un panel por vehiculo
@@ -3175,6 +3173,11 @@ function renderResumen(alumnoKey, regs, cierres, faseActiva){
       var ultimaFecha=fRegs.length?fRegs[0].fecha:'\u2014';
       var c=cierres[alumnoKey+'_'+vid+'_'+fase];
       var esRec=CE_SOLO_RECORDATORIO.indexOf(fase)>=0;
+
+      // Solo mostrar procesos Entregados o Cerrados — los "En curso" no aparecen aquí
+      var esCerrado = c && c.nota!==null && c.nota!==undefined;
+      var esEntregado = c && c.alumno_solicita_cierre && !esCerrado;
+      if(!esCerrado && !esEntregado) return;
 
       var statusBadge, notaHtml='', fechaInfo='';
       if(c && c.nota!==null && c.nota!==undefined){
@@ -3515,69 +3518,80 @@ async function solicitarCierre(btn){
 function renderTablaProcesoCompleto(fase, fRegs, cierres, alumnoKey, vid){
   var fLabel = FASE_NAMES[fase] || fase;
   var totalHoras = fRegs.reduce(function(s,r){ return s+(Array.isArray(r.horas)?r.horas.length:0); }, 0);
-  var episOk=0, episTotal=0;
+
+  // EPIs: solo porcentaje compacto
   var EPIS_K=['ropa','botas','guantes','gafas','casco','mascarilla'];
+  var episOk=0, episTotal=0;
   fRegs.forEach(function(r){ EPIS_K.forEach(function(ek){ episTotal++; if((r.epis||{})[ek]) episOk++; }); });
   var pctEpi=episTotal>0?Math.round(episOk/episTotal*100):0;
   var epiColor=pctEpi>=90?'var(--success)':pctEpi>=70?'var(--warning)':'var(--danger)';
 
+  // Cabecera resumen
   var html='<div class="proceso-resumen-bar">'+
-    '<span class="proceso-resumen-stat">\u{1F4C5} '+fRegs.length+' jornada'+(fRegs.length!==1?'s':'')+'</span>'+
-    '<span class="proceso-resumen-stat">\u{1F550} '+totalHoras+' clases</span>'+
-    '<span class="proceso-resumen-stat" style="color:'+epiColor+'">\u{1F9BA} EPIs: '+pctEpi+'%</span>'+
+    '<span class="proceso-resumen-stat">\uD83D\uDCC5 '+fRegs.length+' jornada'+(fRegs.length!==1?'s':'')+'</span>'+
+    '<span class="proceso-resumen-stat">\uD83D\uDD50 '+totalHoras+' clases</span>'+
+    '<span class="proceso-resumen-stat" style="color:'+epiColor+'">\uD83E\uDDBA EPIs: '+pctEpi+'%</span>'+
   '</div>';
 
-  // Cabecera tabla
-  html+='<div style="overflow-x:auto"><table class="tabla-proceso"><thead><tr><th class="item-col">\u{1F4CB} \u{00CD}tem</th>';
-  fRegs.forEach(function(r){
-    html+='<th>\u{1F4C5} '+r.fecha+'<br><span style="font-size:10px;opacity:.8">'+(Array.isArray(r.horas)?r.horas.length:0)+'h</span></th>';
-  });
-  html+='</tr></thead><tbody>';
-
-  // Datos técnicos por proceso — decodificados con el resolutor
+  // ═══ DATOS TÉCNICOS — protagonistas ═══
   var extrasDefs = EXTRAS_RESOLVER[fase]||[];
   if(extrasDefs.length){
-    html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F52C} Datos técnicos del proceso</td></tr>';
-    extrasDefs.forEach(function(def){
-      // Solo mostrar la fila si al menos una jornada tiene valor
-      var tieneAlgo = fRegs.some(function(r){ return !!resolverExtra(def, r.checkData); });
-      if(!tieneAlgo) return;
-      html+='<tr><td class="item-label">'+def.lbl+'</td>';
-      fRegs.forEach(function(r){
-        var val = resolverExtra(def, r.checkData);
-        html+='<td>'+(val?'<span class="tabla-val">'+escHtml(val)+'</span>':'<span class="tabla-empty">—</span>')+'</td>';
-      });
-      html+='</tr>';
+    // Filtrar defs que tienen algún valor en alguna jornada
+    var defsConDatos=extrasDefs.filter(function(def){
+      return fRegs.some(function(r){ return !!resolverExtra(def, r.checkData); });
     });
+
+    if(defsConDatos.length){
+      html+='<div style="overflow-x:auto"><table class="tabla-proceso"><thead><tr>'+
+        '<th class="item-col">\uD83D\uDD2C Dato técnico</th>';
+      fRegs.forEach(function(r){
+        html+='<th>\uD83D\uDCC5 '+r.fecha+'<br><span style="font-size:10px;opacity:.8">'+(Array.isArray(r.horas)?r.horas.length:0)+'h</span></th>';
+      });
+      html+='</tr></thead><tbody>';
+
+      defsConDatos.forEach(function(def){
+        html+='<tr><td class="item-label" style="font-weight:700">'+def.lbl+'</td>';
+        fRegs.forEach(function(r){
+          var val=resolverExtra(def, r.checkData);
+          html+='<td>'+(val?'<span class="tabla-val">'+escHtml(val)+'</span>':'<span class="tabla-empty">\u2014</span>')+'</td>';
+        });
+        html+='</tr>';
+      });
+      html+='</tbody></table></div>';
+    } else {
+      html+='<div style="padding:12px 18px;font-size:12px;color:var(--text-dim);font-style:italic">Sin datos técnicos registrados en este proceso.</div>';
+    }
+  } else {
+    html+='<div style="padding:12px 18px;font-size:12px;color:var(--text-dim);font-style:italic">Proceso sin ficha técnica específica.</div>';
   }
 
-  // EPIs
-  html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F9BA} Equipos de Protección Individual</td></tr>';
-  [{k:'ropa',lbl:'Ropa de trabajo'},{k:'botas',lbl:'Botas de seguridad'},{k:'guantes',lbl:'Guantes'},{k:'gafas',lbl:'Gafas de protección'},{k:'casco',lbl:'Casco'},{k:'mascarilla',lbl:'Mascarilla/Respirador'}].forEach(function(e){
-    html+='<tr><td class="item-label">'+e.lbl+'</td>';
-    fRegs.forEach(function(r){
-      var val=(r.epis||{})[e.k];
-      html+='<td>'+(val===true?'<span class="tabla-ok">\u2713</span>':val===false?'<span class="tabla-ko">\u2717</span>':'<span class="tabla-empty">—</span>')+'</td>';
-    });
-    html+='</tr>';
-  });
+  // ═══ PIEZAS + OBSERVACIONES — compactas ═══
+  var hayPiezas = fRegs.some(function(r){ return r.piezasTexto; });
+  var hayObs    = fRegs.some(function(r){ return r.observaciones; });
 
-  // Piezas
-  html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F527} Piezas trabajadas</td></tr>';
-  html+='<tr><td class="item-label">Piezas</td>';
-  fRegs.forEach(function(r){ html+='<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+(r.piezasTexto||'—')+'</span></td>'; });
-  html+='</tr>';
+  if(hayPiezas || hayObs){
+    html+='<div style="overflow-x:auto"><table class="tabla-proceso"><tbody>';
 
-  // Observaciones
-  html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F4AC} Observaciones del alumno</td></tr>';
-  html+='<tr><td class="item-label">Observaciones</td>';
-  fRegs.forEach(function(r){
-    var obs=r.observaciones?escHtml(r.observaciones.substring(0,80))+(r.observaciones.length>80?'...':''):'—';
-    html+='<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+obs+'</span></td>';
-  });
-  html+='</tr>';
+    if(hayPiezas){
+      html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\uD83D\uDD27 Piezas trabajadas</td></tr>';
+      html+='<tr><td class="item-label">Piezas</td>';
+      fRegs.forEach(function(r){ html+='<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+(r.piezasTexto||'\u2014')+'</span></td>'; });
+      html+='</tr>';
+    }
 
-  html+='</tbody></table></div>';
+    if(hayObs){
+      html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\uD83D\uDCAC Observaciones del alumno</td></tr>';
+      html+='<tr><td class="item-label">Observaciones</td>';
+      fRegs.forEach(function(r){
+        var obs=r.observaciones?escHtml(r.observaciones.substring(0,120))+(r.observaciones.length>120?'\u2026':''):'\u2014';
+        html+='<td><span class="tabla-val" style="font-size:10px;text-align:left;display:block">'+obs+'</span></td>';
+      });
+      html+='</tr>';
+    }
+
+    html+='</tbody></table></div>';
+  }
+
   return html;
 }
 
