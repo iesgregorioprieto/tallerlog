@@ -1356,11 +1356,7 @@ var EPIS_LIST = [
 // ════════════════════════════════════════════
 // LOGIN
 // ════════════════════════════════════════════
-window.onload = function(){
-  var saved = lS(K.alumno);
-  if(saved){ currentAlumno = saved; startApp(); return; }
-  renderLoginExisting();
-};
+// (window.onload definido más arriba — versión Supabase con sessionStorage)
 
 function renderLoginExisting(){
   // No hay alumnos previos en este dispositivo
@@ -2540,7 +2536,7 @@ function closeLightbox(){ document.getElementById('lightbox').classList.remove('
 // ══════════════════════════════════════════
 
 
-window.onload=init;
+// (window.onload ya definido — no reasignar)
 
 
 // ══════════════════════════════════════════════════════════
