@@ -975,7 +975,7 @@ textarea.finput{resize:vertical;min-height:80px;}
   <!-- PANTALLA: RESUMEN -->
   <div class="screen" id="screenResumen">
     <div class="main-content">
-      <div class="section-title">📊 Mi resumen</div>
+      <div class="section-title">📦 Entrega de procesos</div>
       <div id="resumenContent"></div>
     </div>
   </div>
@@ -999,8 +999,8 @@ textarea.finput{resize:vertical;min-height:80px;}
     </button>
     <button class="bnav-tab" id="bnav3" onclick="showScreen('screenResumen',3);cargarEstadosProcesos().then(renderResumenAlumno)">
       <div class="bnav-indicator"></div>
-      <span class="bnav-icon">📊</span>
-      <span class="bnav-lbl">Resumen</span>
+      <span class="bnav-icon">📦</span>
+      <span class="bnav-lbl">Entrega</span>
     </button>
   </nav>
 </div>
@@ -2694,7 +2694,7 @@ function renderFichaAlumno(alumnoId){
   html += '<div class="alumno-tabs">'+
     '<button class="alumno-tab'+(activeTab==='registros'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'registros\')">📋 Registros</button>'+
     '<button class="alumno-tab'+(activeTab==='evaluacion'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'evaluacion\')">📊 Evaluación</button>'+
-    '<button class="alumno-tab'+(activeTab==='resumen'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'resumen\')">📦 Entrega de procesos</button>'+
+    '<button class="alumno-tab'+(activeTab==='resumen'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'resumen\')">📈 Calificaciones</button>'+
   '</div>';
 
   if(!regs.length){
@@ -3112,130 +3112,108 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
 }
 
 function renderResumen(alumnoKey, regs, cierres, faseActiva){
-  // Vista "Entrega de procesos": seguimiento global por vehiculo+proceso
+  // Vista "Calificaciones": medias de CE por proceso cerrado, agrupadas por vehiculo
   var fasesOrden=['desabollado','plasticos','enmasillado','aparejado','enmascarado','limpieza','pintado','barnizado','correccion'];
   var data=alumnosCache[alumnoKey];
   var vehMap={};
   if(data && data.vehiculos) data.vehiculos.forEach(function(v){ vehMap[v.id]=v; });
 
-  // Vehiculos con jornadas (en orden de aparicion)
+  // Recopilar cierres con nota_final (solo procesos evaluados/cerrados)
+  var bloques=[]; // {vid, fase, cierre, fRegs}
   var vehIds=[];
-  regs.forEach(function(r){
-    var id=r.vehiculoId||'__sv__';
-    if(vehIds.indexOf(id)<0) vehIds.push(id);
+  regs.forEach(function(r){ var id=r.vehiculoId||'__sv__'; if(vehIds.indexOf(id)<0) vehIds.push(id); });
+
+  vehIds.forEach(function(vid){
+    fasesOrden.forEach(function(fase){
+      var c=cierres[alumnoKey+'_'+vid+'_'+fase];
+      if(!c || c.nota===null || c.nota===undefined) return;
+      var fRegs=regs.filter(function(r){ return (r.vehiculoId||'__sv__')===vid && r.proceso===fase; });
+      bloques.push({vid:vid, fase:fase, cierre:c, fRegs:fRegs});
+    });
   });
 
-  if(!vehIds.length){
-    return '<div class="card"><p style="color:var(--text-dim);text-align:center;padding:32px">No hay procesos registrados todavia.</p></div>';
+  if(!bloques.length){
+    return '<div style="text-align:center;padding:48px 24px;color:var(--text-dim)">'+
+      '<div style="font-size:48px;margin-bottom:12px">\uD83D\uDCCB</div>'+
+      '<div style="font-weight:800;font-size:16px;margin-bottom:6px">Sin procesos calificados todav\u00EDa</div>'+
+      '<div style="font-size:13px">Cuando cierres un proceso desde la pesta\u00F1a Evaluaci\u00F3n aparecer\u00E1 aqu\u00ED.</div>'+
+    '</div>';
   }
 
-  // Contadores globales
-  var nCerrados=0, nEntregados=0, nEnCurso=0, nTotal=0;
-  vehIds.forEach(function(vid){
-    var vRegs=regs.filter(function(r){return (r.vehiculoId||'__sv__')===vid;});
-    fasesOrden.forEach(function(fase){
-      if(!vRegs.some(function(r){return r.proceso===fase;})) return;
-      nTotal++;
-      var c=cierres[alumnoKey+'_'+vid+'_'+fase];
-      if(c && c.nota!==null && c.nota!==undefined){ nCerrados++; }
-      else if(c && c.alumno_solicita_cierre){ nEntregados++; }
-      else { nEnCurso++; }
-    });
-  });
+  // Cabecera: nota media global
+  var sumNotas=0;
+  bloques.forEach(function(b){ sumNotas+=Number(b.cierre.nota); });
+  var mediaGlobal=sumNotas/bloques.length;
+  var mgColor=mediaGlobal>=8?'#22c55e':mediaGlobal>=5?'#f97316':'#ef4444';
 
-  // Cabecera estadisticas
-  var html='<div style="display:flex;gap:10px;flex-wrap:wrap;padding:4px 0 18px">';
-  html+='<div style="background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.35);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
-    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:#22c55e">'+nCerrados+'</div>'+
-    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Cerrados</div></div>';
-  html+='<div style="background:rgba(230,81,0,.1);border:1px solid rgba(230,81,0,.35);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
-    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:#e65100">'+nEntregados+'</div>'+
-    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Entregados</div></div>';
-  html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;text-align:center;min-width:64px">'+
-    '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:var(--text-dim)">'+nEnCurso+'</div>'+
-    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">En curso</div></div>';
+  var html='<div style="display:flex;align-items:center;gap:16px;padding:8px 0 20px">';
+  html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 24px;text-align:center">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:900;color:'+mgColor+'">'+mediaGlobal.toFixed(1)+'</div>'+
+    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Media global</div></div>';
+  html+='<div style="font-size:13px;color:var(--text-dim)">'+bloques.length+' proceso'+(bloques.length!==1?'s':'')+' calificado'+(bloques.length!==1?'s':'')+'</div>';
   html+='</div>';
 
-  // Un panel por vehiculo — solo si tiene procesos Entregados o Cerrados
-  var hayAlgoEntregado = false;
-  vehIds.forEach(function(vid){
-    var v=vehMap[vid];
-    var vNombre=v?((v.marca||'')+' '+(v.modelo||'')+(v.anio?' '+v.anio:'')).trim():'Sin vehiculo asignado';
-    var vRegs=regs.filter(function(r){return (r.vehiculoId||'__sv__')===vid;});
-    var fasesVeh=fasesOrden.filter(function(f){return vRegs.some(function(r){return r.proceso===f;});});
-    if(!fasesVeh.length) return;
+  // Un panel por (vehiculo + proceso) cerrado
+  bloques.forEach(function(b){
+    var v=vehMap[b.vid];
+    var vLabel=v?((v.marca||'')+' '+(v.modelo||'')+(v.matricula?' ('+v.matricula+')':'')).trim():'Sin veh\u00EDculo';
+    var fLabel=FASE_NAMES[b.fase]||b.fase;
+    var criterios=CRITERIOS_EVALUACION[b.fase]||[];
+    var esRec=CE_SOLO_RECORDATORIO.indexOf(b.fase)>=0;
+    var notaColor=Number(b.cierre.nota)>=8?'#22c55e':Number(b.cierre.nota)>=5?'#f97316':'#ef4444';
 
-    // Pre-filtrar solo fases Entregadas o Cerradas — si ninguna, no mostramos el panel
-    var fasesMostrar=fasesVeh.filter(function(fase){
-      var c=cierres[alumnoKey+'_'+vid+'_'+fase];
-      var esCerrado=c && c.nota!==null && c.nota!==undefined;
-      var esEntregado=c && c.alumno_solicita_cierre && !esCerrado;
-      return esCerrado||esEntregado;
-    });
-    if(!fasesMostrar.length) return;
-    hayAlgoEntregado=true;
+    html+='<div class="proceso-eval-panel" style="margin-bottom:14px">';
 
-    html+='<div class="proceso-eval-panel" style="margin-bottom:16px">';
-    html+='<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(21,101,192,.1),rgba(21,101,192,.03));border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
-      '<span style="font-size:20px">\uD83D\uDE97</span>'+
-      '<div>'+
-        '<div style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:17px">'+escHtml(vNombre)+'</div>'+
-        (v&&v.matricula?'<div style="font-size:11px;color:var(--text-dim)">'+escHtml(v.matricula)+(v.color?' \u00B7 '+escHtml(v.color):'')+'</div>':'')+
-      '</div>'+
+    // Cabecera del bloque
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;'+
+      'background:linear-gradient(135deg,rgba(21,101,192,.1),rgba(21,101,192,.03));border-bottom:1px solid var(--border)">';
+    html+='<div>'+
+      '<div style="font-family:Barlow Condensed,sans-serif;font-weight:900;font-size:18px">'+fLabel+'</div>'+
+      '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">\uD83D\uDE97 '+escHtml(vLabel)+
+        (b.cierre.fecha?' \u00A0\u00B7\u00A0 \uD83D\uDCC5 Cerrado: '+b.cierre.fecha:'')+'</div>'+
     '</div>';
-
-    fasesMostrar.forEach(function(fase){
-      var fRegs=vRegs.filter(function(r){return r.proceso===fase;});
-      var ultimaFecha=fRegs.length?fRegs[0].fecha:'\u2014';
-      var c=cierres[alumnoKey+'_'+vid+'_'+fase];
-      var esRec=CE_SOLO_RECORDATORIO.indexOf(fase)>=0;
-
-      var esCerrado=c && c.nota!==null && c.nota!==undefined;
-      var statusBadge, notaHtml='', fechaInfo='';
-      if(esCerrado){
-        var notaColor=Number(c.nota)>=8?'#22c55e':Number(c.nota)>=5?'#f97316':'#ef4444';
-        statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#22c55e">\uD83D\uDD12 Cerrado</span>';
-        if(!esRec) notaHtml='<span style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:900;line-height:1;color:'+notaColor+'">'+Number(c.nota).toFixed(1)+'</span>';
-        fechaInfo=c.fecha?'Cerrado: '+c.fecha:'';
-      } else {
-        statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(230,81,0,.12);border:1px solid rgba(230,81,0,.4);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#e65100">\u26A1 Entregado</span>';
-        fechaInfo=c.fecha_solicitud?'Entregado: '+c.fecha_solicitud:'Entregado: '+ultimaFecha;
-      }
-
-      var fLabelFull=FASE_NAMES[fase]||fase;
-      var fIcon=fLabelFull.split(' ')[0];
-
-      html+='<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border)">'+
-        '<div style="font-size:20px;width:28px;text-align:center;flex-shrink:0">'+fIcon+'</div>'+
-        '<div style="flex:1;min-width:0">'+
-          '<div style="font-weight:800;font-size:13px">'+escHtml(fLabelFull.replace(/^.\s*/,''))+'</div>'+
-          '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">'+
-            '\uD83D\uDCC5 '+fRegs.length+' jornada'+(fRegs.length!==1?'s':'')+
-            (fechaInfo?' \u00A0\u00B7\u00A0 \uD83D\uDCCC '+escHtml(fechaInfo):'')+
-          '</div>'+
-        '</div>'+
-        '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'+
-          notaHtml+
-          statusBadge+
-        '</div>'+
+    if(!esRec){
+      html+='<div style="text-align:center;background:var(--surface);border:2px solid '+notaColor+';border-radius:12px;padding:8px 16px">'+
+        '<div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:900;color:'+notaColor+'">'+Number(b.cierre.nota).toFixed(1)+'</div>'+
+        '<div style="font-size:9px;color:var(--text-dim);font-weight:700;text-transform:uppercase">Nota final</div>'+
       '</div>';
-    });
+    } else {
+      html+='<div style="font-size:11px;color:var(--text-dim);font-style:italic">Sin calificaci\u00F3n num\u00E9rica</div>';
+    }
+    html+='</div>';
+
+    // Tabla de CE
+    if(criterios.length){
+      html+='<div style="padding:0">';
+      criterios.forEach(function(ce){
+        var nivelId=(b.cierre.ceEvals||{})[ce.id];
+        var nivel=nivelId?CE_NIVELES.find(function(n){return n.id===nivelId;}):null;
+        var isEpi=ce.epi===true;
+        html+='<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border);'+
+          (isEpi?'background:rgba(21,101,192,.04)':'')+'">'+
+          '<div style="flex-shrink:0;margin-top:1px">'+
+            '<div class="eval-ce-badge"'+(isEpi?' style="background:rgba(21,101,192,.18)"':'')+'>'+ce.ce+'</div>'+
+            '<div style="font-size:9px;color:var(--text-dim);text-align:center;margin-top:2px">'+ce.ra+'</div>'+
+          '</div>'+
+          '<div style="flex:1;font-size:12px;line-height:1.4;color:var(--text)">'+ce.texto+'</div>'+
+          '<div style="flex-shrink:0;text-align:right">'+
+            (nivel
+              ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:800;background:'+nivel.bg+';border:1px solid '+nivel.color+';color:'+nivel.color+'">'+nivel.puntos+' &mdash; '+nivel.label+'</span>'
+              : '<span style="font-size:11px;color:var(--text-dim)">Sin evaluar</span>'
+            )+
+          '</div>'+
+        '</div>';
+      });
+      html+='</div>';
+    } else {
+      html+='<div style="padding:12px 18px;font-size:12px;color:var(--text-dim);font-style:italic">Sin criterios definidos para este proceso.</div>';
+    }
 
     html+='</div>'; // cierre panel
   });
 
-  // Mensaje si el alumno no ha entregado nada aún
-  if(!hayAlgoEntregado){
-    html+='<div style="text-align:center;padding:48px 24px;color:var(--text-dim)">'+
-      '<div style="font-size:48px;margin-bottom:12px">📭</div>'+
-      '<div style="font-weight:800;font-size:16px;margin-bottom:6px">Sin procesos entregados todavía</div>'+
-      '<div style="font-size:13px">El alumno todavía no ha marcado ningún proceso como listo para evaluar.</div>'+
-    '</div>';
-  }
-
   return html;
 }
-
 function cambiarResumenFase(alumnoKey, fase){
   // La nueva vista "Entrega de procesos" no usa tabs de fase — simplemente rerenderizar
   cambiarTab(alumnoKey, 'resumen');
