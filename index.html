@@ -3522,27 +3522,18 @@ function renderTablaProcesoCompleto(fase, fRegs, cierres, alumnoKey, vid){
   });
   html+='</tr></thead><tbody>';
 
-  // Datos técnicos por proceso
-  var EXTRAS_DEF={
-    desabollado:[{k:'herramientas',lbl:'Herramientas utilizadas'},{k:'ajustes',lbl:'Ajustes del equipo/spotter'}],
-    plasticos:[{k:'codigo_plastico',lbl:'Código del plástico'},{k:'tipo_plastico',lbl:'Tipo plástico (PP/ABS/PC...)'},{k:'metodo_reparacion',lbl:'Método de reparación'}],
-    enmasillado:[{k:'tipo_masilla',lbl:'Tipo de masilla'},{k:'proporcion_masilla',lbl:'Proporción de mezcla'},{k:'tsecado',lbl:'Tiempo de secado'},{k:'escala_lijado',lbl:'Escala de lijado'},{k:'metodo_lijado',lbl:'Método lijado (mano/máquina)'},{k:'ir_secado',lbl:'Secado con infrarrojos'}],
-    aparejado:[{k:'marca_aparejo',lbl:'Marca del aparejo'},{k:'catalizador',lbl:'Catalizador'},{k:'diluyente',lbl:'Diluyente'},{k:'metodo_mezcla',lbl:'Método de mezcla'},{k:'tono_aparejo',lbl:'Tono del aparejo'},{k:'ir_aparejo',lbl:'Secado infrarrojos'}],
-    enmascarado:[{k:'tipo_enmascarado',lbl:'Tipo de enmascarado'},{k:'materiales_enmascarado',lbl:'Materiales utilizados'}],
-    limpieza:[{k:'producto_limpieza',lbl:'Producto de limpieza'}],
-    pintado:[{k:'acabado_pintura',lbl:'Acabado (sólido/metalizado/perlado)'},{k:'efecto_pintura',lbl:'Efecto'},{k:'codigo_color',lbl:'Código de color'},{k:'formula_basicos',lbl:'Fórmula/básicos'},{k:'pistola_pint',lbl:'Pistola'},{k:'presion_trabajo',lbl:'Presión (bar)'},{k:'num_manos_pint',lbl:'Nº de manos'},{k:'vida_util_pint',lbl:'Vida útil mezcla'},{k:'tsecado_pint',lbl:'Tiempo secado'},{k:'cov_pint',lbl:'COV (g/l)'}],
-    barnizado:[{k:'producto_barniz',lbl:'Producto barniz'},{k:'catalizador_barn',lbl:'Catalizador'},{k:'diluyente_barn',lbl:'Diluyente'},{k:'pistola_barn',lbl:'Pistola'},{k:'num_manos_barn',lbl:'Nº manos'},{k:'evap_manos_barn',lbl:'Evap. entre manos'},{k:'vida_util_barn',lbl:'Vida útil mezcla'},{k:'tevap_barn',lbl:'Tiempo evaporación'},{k:'cov_barn',lbl:'COV (g/l)'}],
-    correccion:[{k:'tipo_defecto',lbl:'Tipo de defecto'},{k:'proceso_corr',lbl:'Proceso de corrección'},{k:'productos_corr',lbl:'Productos utilizados'},{k:'utiles_corr',lbl:'Útiles y máquinas'}]
-  };
-
-  var extras = EXTRAS_DEF[fase]||[];
-  if(extras.length){
+  // Datos técnicos por proceso — decodificados con el resolutor
+  var extrasDefs = EXTRAS_RESOLVER[fase]||[];
+  if(extrasDefs.length){
     html+='<tr><td class="seccion-header" colspan="'+(fRegs.length+1)+'">\u{1F52C} Datos técnicos del proceso</td></tr>';
-    extras.forEach(function(ex){
-      html+='<tr><td class="item-label">'+ex.lbl+'</td>';
+    extrasDefs.forEach(function(def){
+      // Solo mostrar la fila si al menos una jornada tiene valor
+      var tieneAlgo = fRegs.some(function(r){ return !!resolverExtra(def, r.checkData); });
+      if(!tieneAlgo) return;
+      html+='<tr><td class="item-label">'+def.lbl+'</td>';
       fRegs.forEach(function(r){
-        var val=(r.extras||{})[ex.k]||(r.checkExtras||{})[ex.k];
-        html+='<td>'+(val?'<span class="tabla-val">'+val+'</span>':'<span class="tabla-empty">—</span>')+'</td>';
+        var val = resolverExtra(def, r.checkData);
+        html+='<td>'+(val?'<span class="tabla-val">'+escHtml(val)+'</span>':'<span class="tabla-empty">—</span>')+'</td>';
       });
       html+='</tr>';
     });
@@ -3576,6 +3567,114 @@ function renderTablaProcesoCompleto(fase, fRegs, cierres, alumnoKey, vid){
 
   html+='</tbody></table></div>';
   return html;
+}
+
+
+// ══════════════════════════════════════════
+// RESOLUTOR DE DATOS TÉCNICOS — decodifica el checkData guardado por el alumno
+// (textos directos y selecciones de opciones tipo tarjeta)
+// ══════════════════════════════════════════
+var EXTRAS_RESOLVER = {
+  desabollado: [
+    {lbl:'Herramientas utilizadas', type:'text', key:'herramientas'},
+    {lbl:'Ajustes del equipo', type:'text', key:'ajustes'}
+  ],
+  plasticos: [
+    {lbl:'Código del plástico', type:'text', key:'cod_plastico'},
+    {lbl:'Tipo de plástico', type:'opts', keys:['tpl_0','tpl_1','tpl_2','tpl_3'], opts:['PP — Polipropileno','ABS — Acrilonitrilo','PC — Policarbonato','PA — Poliamida (nylon)']},
+    {lbl:'Método de reparación', type:'opts', keys:['mpl_0','mpl_1','mpl_2','mpl_3'], opts:['Soldadura plástica','Adhesivo bicomponente','Grapas de anclaje','Masilla de plástico']}
+  ],
+  enmasillado: [
+    {lbl:'Tipo de masilla', type:'opts', keys:['tmas_0','tmas_1','tmas_2','tmas_3'], opts:['Masilla de poliéster','Masilla de plástico','Masilla de fibra de vidrio','Otra']},
+    {lbl:'Masilla (especificar "otra")', type:'text', key:'masilla_otra'},
+    {lbl:'Proporción de mezcla', type:'text', key:'prop_masilla'},
+    {lbl:'Tiempo de secado', type:'text', key:'tsecado'},
+    {lbl:'Escala de lijado', type:'opts_multi', keys:['lija_P80','lija_P120','lija_P180','lija_P220','lija_P320','lija_P400','lija_P600','lija_P800'], opts:['P80','P120','P180','P220','P320','P400','P600','P800']},
+    {lbl:'Método de lijado', type:'opts', keys:['metlij_0','metlij_1'], opts:['A mano con taco','A máquina']},
+    {lbl:'Tipo de máquina', type:'text', key:'maq_tipo'},
+    {lbl:'IR — Distancia', type:'text', key:'ir_dist'},
+    {lbl:'IR — Tiempo', type:'text', key:'ir_tiempo'},
+    {lbl:'IR — Flash-off', type:'text', key:'ir_flashoff'}
+  ],
+  aparejado: [
+    {lbl:'Marca y ref. del aparejo', type:'text', key:'marca_aparejo'},
+    {lbl:'Catalizador (nombre)', type:'text', key:'cat_nombre'},
+    {lbl:'Catalizador (velocidad)', type:'text', key:'cat_vel'},
+    {lbl:'Diluyente (nombre)', type:'text', key:'dil_nombre'},
+    {lbl:'Diluyente (velocidad)', type:'text', key:'dil_vel'},
+    {lbl:'Método de mezcla', type:'opts', keys:['metmez_0','metmez_1'], opts:['Por volumen','Por peso']},
+    {lbl:'Proporción de mezcla', type:'text', key:'prop_mezcla'},
+    {lbl:'Pico de fluido pistola', type:'opts', keys:['pico_12','pico_14','pico_16','pico_18','pico_20','pico_25'], opts:['Ø1.2mm','Ø1.4mm','Ø1.6mm','Ø1.8mm','Ø2.0mm','Ø2.5mm']},
+    {lbl:'Modo de aplicación', type:'text', key:'modo_aplic'},
+    {lbl:'Tiempo de secado', type:'text', key:'tsecado_ap'},
+    {lbl:'Tono del aparejo', type:'opts', keys:['tono_0','tono_1','tono_2','tono_3'], opts:['Blanco','Gris claro','Gris medio','Negro']},
+    {lbl:'IR — Distancia', type:'text', key:'ir_dist'},
+    {lbl:'IR — Tiempo', type:'text', key:'ir_tiempo'},
+    {lbl:'IR — Flash-off', type:'text', key:'ir_flashoff'}
+  ],
+  enmascarado: [
+    {lbl:'Tipo de enmascarado', type:'opts', keys:['enm_tipo_0','enm_tipo_1','enm_tipo_2','enm_tipo_3'], opts:['Parcial','Total','Cristales/lunas','Interior']},
+    {lbl:'Materiales utilizados', type:'opts_multi', keys:['mat_0','mat_1','mat_2','mat_3','mat_4','mat_5'], opts:['Papel periódico','Papel kraft','Film plástico','Cinta de carrocero','Cinta de enmascarar','Enmascarador líquido']}
+  ],
+  limpieza: [
+    {lbl:'Producto de limpieza', type:'text', key:'prod_limpieza'}
+  ],
+  pintado: [
+    {lbl:'Acabado', type:'opts', keys:['acab_0','acab_1','acab_2'], opts:['Monocapa','Bicapa','Tricapa']},
+    {lbl:'Efecto', type:'opts', keys:['efec_0','efec_1','efec_2'], opts:['Liso/sólido','Metalizado','Perlado']},
+    {lbl:'Código de color', type:'text', key:'cod_color'},
+    {lbl:'Fórmula/básicos', type:'text', key:'formula'},
+    {lbl:'Cantidad formulada', type:'text', key:'cantidad_form'},
+    {lbl:'Pistola', type:'text', key:'pistola'},
+    {lbl:'Pico de fluido', type:'opts', keys:['pico_12','pico_14','pico_16','pico_18','pico_20','pico_25'], opts:['Ø1.2mm','Ø1.4mm','Ø1.6mm','Ø1.8mm','Ø2.0mm','Ø2.5mm']},
+    {lbl:'Presión de trabajo', type:'text', key:'presion'},
+    {lbl:'Nº de manos', type:'opts', keys:['manos_1','manos_2','manos_3','manos_4'], opts:['1','2','3','4']},
+    {lbl:'Modo de aplicación', type:'text', key:'modo_aplic'},
+    {lbl:'Vida útil mezcla', type:'text', key:'vida_util'},
+    {lbl:'Tiempo secado', type:'text', key:'tsecado_ap'},
+    {lbl:'COV', type:'text', key:'cov'}
+  ],
+  barnizado: [
+    {lbl:'Producto (barniz)', type:'text', key:'prod_barniz'},
+    {lbl:'Catalizador (nombre)', type:'text', key:'cat_nombre'},
+    {lbl:'Catalizador (velocidad)', type:'text', key:'cat_vel'},
+    {lbl:'Diluyente (nombre)', type:'text', key:'dil_nombre'},
+    {lbl:'Diluyente (velocidad)', type:'text', key:'dil_vel'},
+    {lbl:'Pistola', type:'text', key:'pistola'},
+    {lbl:'Pico de fluido', type:'opts', keys:['pico_12','pico_14','pico_16','pico_18','pico_20','pico_25'], opts:['Ø1.2mm','Ø1.4mm','Ø1.6mm','Ø1.8mm','Ø2.0mm','Ø2.5mm']},
+    {lbl:'Nº de manos', type:'opts', keys:['manos_1','manos_2','manos_3','manos_4'], opts:['1','2','3','4']},
+    {lbl:'Evaporación entre manos', type:'text', key:'evap_manos'},
+    {lbl:'Vida útil mezcla', type:'text', key:'vida_util'},
+    {lbl:'Tiempo evaporación final', type:'text', key:'tevap'},
+    {lbl:'COV', type:'text', key:'cov'}
+  ],
+  correccion: [
+    {lbl:'Tipo de defecto', type:'opts_multi', keys:['defecto_0','defecto_1','defecto_2','defecto_3','defecto_4','defecto_5'], opts:['Ampollado','Cuarteado','Ojo de pez','Escurridos','Inclusiones suciedad','Falta de brillo']},
+    {lbl:'Proceso utilizado', type:'opts', keys:['proc_corr_0','proc_corr_1','proc_corr_2','proc_corr_3'], opts:['Lijado fino','Pulido abrasivo','Abrillantado','Repintado parcial']},
+    {lbl:'Productos utilizados', type:'text', key:'prods_corr'},
+    {lbl:'Útiles y máquinas', type:'opts_multi', keys:['util_0','util_1','util_2','util_3','util_4','util_5'], opts:['Pulidora rotoorbital','Disco de pulir','Taco de lijado','Esponja de pulir','Lijadora vibrante','A mano']}
+  ]
+};
+
+function resolverExtra(def, checkData){
+  checkData = checkData || {};
+  if(def.type === 'text'){
+    return checkData[def.key] || null;
+  }
+  if(def.type === 'opts'){
+    for(var i=0; i<def.keys.length; i++){
+      if(checkData[def.keys[i]] === true) return def.opts[i];
+    }
+    return null;
+  }
+  if(def.type === 'opts_multi'){
+    var sel = [];
+    for(var i=0; i<def.keys.length; i++){
+      if(checkData[def.keys[i]] === true) sel.push(def.opts[i]);
+    }
+    return sel.length ? sel.join(', ') : null;
+  }
+  return null;
 }
 
 </script>
