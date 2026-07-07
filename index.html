@@ -3150,13 +3150,24 @@ function renderResumen(alumnoKey, regs, cierres, faseActiva){
     '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">En curso</div></div>';
   html+='</div>';
 
-  // Un panel por vehiculo
+  // Un panel por vehiculo — solo si tiene procesos Entregados o Cerrados
+  var hayAlgoEntregado = false;
   vehIds.forEach(function(vid){
     var v=vehMap[vid];
     var vNombre=v?((v.marca||'')+' '+(v.modelo||'')+(v.anio?' '+v.anio:'')).trim():'Sin vehiculo asignado';
     var vRegs=regs.filter(function(r){return (r.vehiculoId||'__sv__')===vid;});
     var fasesVeh=fasesOrden.filter(function(f){return vRegs.some(function(r){return r.proceso===f;});});
     if(!fasesVeh.length) return;
+
+    // Pre-filtrar solo fases Entregadas o Cerradas — si ninguna, no mostramos el panel
+    var fasesMostrar=fasesVeh.filter(function(fase){
+      var c=cierres[alumnoKey+'_'+vid+'_'+fase];
+      var esCerrado=c && c.nota!==null && c.nota!==undefined;
+      var esEntregado=c && c.alumno_solicita_cierre && !esCerrado;
+      return esCerrado||esEntregado;
+    });
+    if(!fasesMostrar.length) return;
+    hayAlgoEntregado=true;
 
     html+='<div class="proceso-eval-panel" style="margin-bottom:16px">';
     html+='<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(21,101,192,.1),rgba(21,101,192,.03));border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
@@ -3167,30 +3178,22 @@ function renderResumen(alumnoKey, regs, cierres, faseActiva){
       '</div>'+
     '</div>';
 
-    fasesVeh.forEach(function(fase){
+    fasesMostrar.forEach(function(fase){
       var fRegs=vRegs.filter(function(r){return r.proceso===fase;});
-      // regs vienen en orden DESC => fRegs[0] es la mas reciente
       var ultimaFecha=fRegs.length?fRegs[0].fecha:'\u2014';
       var c=cierres[alumnoKey+'_'+vid+'_'+fase];
       var esRec=CE_SOLO_RECORDATORIO.indexOf(fase)>=0;
 
-      // Solo mostrar procesos Entregados o Cerrados — los "En curso" no aparecen aquí
-      var esCerrado = c && c.nota!==null && c.nota!==undefined;
-      var esEntregado = c && c.alumno_solicita_cierre && !esCerrado;
-      if(!esCerrado && !esEntregado) return;
-
+      var esCerrado=c && c.nota!==null && c.nota!==undefined;
       var statusBadge, notaHtml='', fechaInfo='';
-      if(c && c.nota!==null && c.nota!==undefined){
+      if(esCerrado){
         var notaColor=Number(c.nota)>=8?'#22c55e':Number(c.nota)>=5?'#f97316':'#ef4444';
         statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#22c55e">\uD83D\uDD12 Cerrado</span>';
         if(!esRec) notaHtml='<span style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:900;line-height:1;color:'+notaColor+'">'+Number(c.nota).toFixed(1)+'</span>';
         fechaInfo=c.fecha?'Cerrado: '+c.fecha:'';
-      } else if(c && c.alumno_solicita_cierre){
+      } else {
         statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(230,81,0,.12);border:1px solid rgba(230,81,0,.4);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#e65100">\u26A1 Entregado</span>';
         fechaInfo=c.fecha_solicitud?'Entregado: '+c.fecha_solicitud:'Entregado: '+ultimaFecha;
-      } else {
-        statusBadge='<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(21,101,192,.1);border:1px solid rgba(21,101,192,.3);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:var(--accent)">\uD83D\uDD04 En curso</span>';
-        fechaInfo='Ultima jornada: '+ultimaFecha;
       }
 
       var fLabelFull=FASE_NAMES[fase]||fase;
@@ -3214,6 +3217,15 @@ function renderResumen(alumnoKey, regs, cierres, faseActiva){
 
     html+='</div>'; // cierre panel
   });
+
+  // Mensaje si el alumno no ha entregado nada aún
+  if(!hayAlgoEntregado){
+    html+='<div style="text-align:center;padding:48px 24px;color:var(--text-dim)">'+
+      '<div style="font-size:48px;margin-bottom:12px">📭</div>'+
+      '<div style="font-weight:800;font-size:16px;margin-bottom:6px">Sin procesos entregados todavía</div>'+
+      '<div style="font-size:13px">El alumno todavía no ha marcado ningún proceso como listo para evaluar.</div>'+
+    '</div>';
+  }
 
   return html;
 }
