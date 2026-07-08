@@ -3090,10 +3090,14 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
       var cierreKey=alumnoKey+'_'+vid+'_'+fase;
       var cierre=cierres[cierreKey]||null;
       var vRegs=fRegs.filter(function(r){ return (r.vehiculoId||'__sv__')===vid; }).sort(function(a,b){ return a.fecha>b.fecha?1:-1; });
+      var fichaVehId='fichaEval_'+alumnoKey+'_'+vid+'_'+fase;
 
       html+='<div style="border-top:1px solid var(--border)">'+
-        '<div style="padding:8px 18px;background:rgba(0,0,0,.04);display:flex;align-items:center;justify-content:space-between">'+
-          '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:700;font-size:14px">🚗 '+vNombre.trim()+'</div>';
+        '<div style="padding:8px 18px;background:rgba(0,0,0,.04);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleDetalle(\''+fichaVehId+'\',this)">'+
+          '<div>'+
+            '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:700;font-size:14px">🚗 '+vNombre.trim()+'</div>'+
+            (v&&v.matricula?'<div style="font-size:11px;color:var(--accent);font-weight:600">'+v.matricula+(v.color?' · '+v.color:'')+' · ver ficha ▼</div>':'')+
+          '</div>';
       if(cierre && cierre.nota!==null && cierre.nota!==undefined && !esRec){
         var nc=cierre.nota>=8?'#22c55e':cierre.nota>=5?'#f97316':'#ef4444';
         html+='<div style="display:flex;align-items:center;gap:10px">'+
@@ -3104,6 +3108,10 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
         html+='<div class="proceso-cerrado-badge" style="background:rgba(230,81,0,.12);color:#e65100;border-color:rgba(230,81,0,.4)">⚡ Entregado'+(cierre.fecha_solicitud?' · '+cierre.fecha_solicitud:'')+'</div>';
       }
       html+='</div>';
+
+      html+='<div class="registro-detalle hidden" id="'+fichaVehId+'" style="background:var(--surface2);border-bottom:1px solid var(--border)">'+
+        renderFichaVehiculoProfesor(v)+
+      '</div>';
 
       // Registros del proceso/vehículo
       html+='<div class="proceso-grupo-header">📅 Días registrados</div>';
