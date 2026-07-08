@@ -1,49 +1,29 @@
-// TallerLog Service Worker
-const CACHE = 'tallerlog-v1';
-const SHELL = [
-  '/tallerlog/',
-  '/tallerlog/index.html'
-];
+// TallerLog Service Worker v2
+// Network-first: siempre intenta la red, cache solo como fallback de emergencia
+const CACHE = 'tallerlog-v2';
 
-// Instalar: cachear el shell
 self.addEventListener('install', function(e){
-  e.waitUntil(
-    caches.open(CACHE).then(function(c){ return c.addAll(SHELL); })
-  );
   self.skipWaiting();
 });
 
-// Activar: limpiar caches antiguas
 self.addEventListener('activate', function(e){
+  // Borrar todos los caches anteriores
   e.waitUntil(
     caches.keys().then(function(keys){
-      return Promise.all(keys.filter(function(k){ return k!==CACHE; }).map(function(k){ return caches.delete(k); }));
-    })
+      return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+    }).then(function(){ return self.clients.claim(); })
   );
-  self.clients.claim();
 });
 
-// Fetch: red primero, caché como fallback
 self.addEventListener('fetch', function(e){
-  // Solo cachear peticiones GET al propio origen
+  // Solo interceptar GET del mismo origen
   if(e.request.method !== 'GET') return;
   if(e.request.url.indexOf(self.location.origin) < 0) return;
 
+  // Siempre red primero — sin cache para el HTML principal
   e.respondWith(
-    fetch(e.request)
-      .then(function(res){
-        // Cachear respuesta fresca
-        if(res && res.status === 200){
-          var clone = res.clone();
-          caches.open(CACHE).then(function(c){ c.put(e.request, clone); });
-        }
-        return res;
-      })
-      .catch(function(){
-        // Sin red: servir desde caché
-        return caches.match(e.request).then(function(cached){
-          return cached || caches.match('/tallerlog/index.html');
-        });
-      })
+    fetch(e.request, {cache: 'no-store'}).catch(function(){
+      return caches.match(e.request);
+    })
   );
 });
