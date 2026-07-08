@@ -1532,20 +1532,7 @@ function renderUltimasJornadas(){
     wrap.innerHTML='<div class="empty-state"><span class="es-icon">📝</span><p>Aún no tienes jornadas registradas.<br>¡Empieza tu primera práctica!</p></div>';
     return;
   }
-  wrap.innerHTML = regs.map(function(r){
-    var p=PROCESOS[r.proceso]||{icon:'🔧',name:r.proceso};
-    var estadoHist=misResumenEstados[r.proceso]||'en_curso';
-    var badgeHist=estadoHist==='evaluado'
-      ?'<span class="reg-status" style="margin-left:auto;background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)">✅ Evaluado</span>'
-      :estadoHist==='solicitado'
-      ?'<span class="reg-status" style="margin-left:auto;background:rgba(230,81,0,.12);color:#e65100;border:1px solid rgba(230,81,0,.4)">⚡ Entregado</span>'
-      :'<span class="reg-status pendiente" style="margin-left:auto">🔄 En curso</span>';
-    return '<div class="reg-card"><div class="reg-head">'+
-      '<span>📅</span><span class="reg-fecha">'+r.fecha+'</span>'+
-      '<span class="reg-fase-badge">'+p.icon+' '+p.name+'</span>'+
-      badgeHist+
-      '</div><div class="reg-body">⏱️ '+(Array.isArray(r.horas)?r.horas.reduce(function(a,b){return a+b;},0):0)+'h &nbsp;·&nbsp; 🔩 '+r.piezasTexto+'</div></div>';
-  }).join('');
+  wrap.innerHTML = regs.map(function(r){ return renderTarjetaJornada(r, true); }).join('');
 }
 
 // ════════════════════════════════════════════
@@ -2385,6 +2372,87 @@ function borrarFotoV(angulo,e){
 // ════════════════════════════════════════════
 // HISTORIAL
 // ════════════════════════════════════════════
+// HISTORIAL
+// ════════════════════════════════════════════
+function renderTarjetaJornada(r, modoCompacto){
+  var p = PROCESOS[r.proceso]||{icon:'🔧', name:r.proceso};
+  var vehiculos = lS(K.vehiculos)||[];
+  var v = vehiculos.find(function(vv){ return vv.id===r.vehiculoId; });
+  var vNom = v ? (v.marca+' '+v.modelo).trim() : 'Sin vehículo';
+  var horasTotal = Array.isArray(r.horas)?r.horas.length:0;
+  var estKey = (r.vehiculoId||'__sv__')+'_'+r.proceso;
+  var estado = misVehProcEstados[estKey]||'en_curso';
+  var badge = estado==='evaluado'
+    ? '<span class="reg-status" style="background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)">✅ Evaluado</span>'
+    : estado==='solicitado'
+    ? '<span class="reg-status" style="background:rgba(230,81,0,.12);color:#e65100;border:1px solid rgba(230,81,0,.4)">⚡ Entregado</span>'
+    : '<span class="reg-status pendiente">🔄 En curso</span>';
+
+  var panelId = 'jorn_'+r.id;
+  var canEdit = (estado==='en_curso');
+
+  // Cabecera siempre visible — clicable para desplegar
+  var html = '<div class="reg-card" style="cursor:pointer" onclick="toggleDetalle(\''+panelId+'\',this)">';
+  html += '<div class="reg-head">';
+  html += '<span style="font-size:13px">📅</span>';
+  html += '<span class="reg-fecha">'+r.fecha+'</span>';
+  html += '<span class="reg-fase-badge">'+p.icon+' '+p.name+'</span>';
+  html += badge;
+  html += '<span class="registro-chevron" style="color:var(--accent);font-size:13px;margin-left:4px">▼</span>';
+  html += '</div>';
+  // Subtítulo: vehículo + horas + piezas
+  html += '<div class="reg-body" style="font-size:11px;color:var(--text-dim)">';
+  html += '🚗 '+vNom;
+  html += ' &nbsp;·&nbsp; ⏱️ '+horasTotal+' clase'+(horasTotal!==1?'s':'');
+  if(r.piezasTexto) html += ' &nbsp;·&nbsp; 🔩 '+r.piezasTexto;
+  html += '</div>';
+  html += '</div>';
+
+  // Panel desplegable
+  html += '<div class="registro-detalle hidden" id="'+panelId+'" style="background:var(--accent-light);border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);padding:14px 16px;margin-top:-6px">';
+
+  // Datos técnicos del proceso
+  var checkData = r.checkData || {};
+  var EXTRAS = (typeof EXTRAS_RESOLVER !== 'undefined') ? EXTRAS_RESOLVER[r.proceso]||[] : [];
+  var extrasTienenDatos = EXTRAS.some(function(def){ return !!resolverExtra(def, checkData); });
+  if(extrasTienenDatos){
+    html += '<div style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">🔬 Datos técnicos</div>';
+    EXTRAS.forEach(function(def){
+      var val = resolverExtra(def, checkData);
+      if(!val) return;
+      html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">';
+      html += '<span style="color:var(--text-dim)">'+def.lbl+'</span>';
+      html += '<span style="font-weight:700">'+val+'</span>';
+      html += '</div>';
+    });
+  }
+
+  // EPIs
+  var EPIS_LBL = {ropa:'Ropa trabajo',botas:'Botas seguridad',guantes:'Guantes',gafas:'Gafas',casco:'Casco',mascarilla:'Mascarilla'};
+  var epi = r.epis || {};
+  var epiStr = Object.keys(EPIS_LBL).filter(function(k){ return epi[k]; }).map(function(k){ return EPIS_LBL[k]; }).join(', ');
+  if(epiStr){
+    html += '<div style="font-size:11px;margin-top:8px"><span style="color:var(--text-dim);font-weight:700">🦺 EPIs: </span>'+epiStr+'</div>';
+  }
+
+  // Observaciones
+  if(r.observaciones){
+    html += '<div style="font-size:11px;margin-top:6px"><span style="color:var(--text-dim);font-weight:700">💬 Observaciones: </span>'+r.observaciones+'</div>';
+  }
+
+  // Botón editar — solo si en curso
+  if(canEdit){
+    html += '<div style="margin-top:12px;text-align:right">';
+    html += '<button onclick="event.stopPropagation();editarJornada(\''+r.id+'\')" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 16px;font-family:Nunito,sans-serif;font-weight:800;font-size:12px;cursor:pointer">✏️ Editar jornada</button>';
+    html += '</div>';
+  } else {
+    html += '<div style="margin-top:10px;font-size:11px;color:var(--text-dim);font-style:italic;text-align:right">🔒 Proceso entregado — no editable</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
 function renderHistorial(){
   var regs=(lS(K.registros)||[]).slice().reverse();
   var wrap=document.getElementById('historialList');
@@ -2393,25 +2461,7 @@ function renderHistorial(){
     wrap.innerHTML='<div class="empty-state"><span class="es-icon">📚</span><p>Tu historial está vacío.<br>Cuando registres jornadas aparecerán aquí.</p></div>';
     return;
   }
-  wrap.innerHTML=regs.map(function(r,i){
-    var p=PROCESOS[r.proceso]||{icon:'🔧',name:r.proceso};
-    var horasTotal=Array.isArray(r.horas)?r.horas.reduce(function(a,b){ return a+b; },0):0;
-    var pct=r.checkTotal>0?Math.round(r.checkDone/r.checkTotal*100):0;
-    return '<div class="reg-card">'+
-      '<div class="reg-head">'+
-        '<span>📅</span>'+
-        '<span class="reg-fecha">'+r.fecha+'</span>'+
-        '<span class="reg-fase-badge">'+p.icon+' '+p.name+'</span>'+
-        '<span class="reg-status pendiente">⏳ Pendiente</span>'+
-      '</div>'+
-      '<div class="reg-body">'+
-        '⏱️ '+horasTotal+' h &nbsp;·&nbsp; '+
-        '🔩 '+r.piezasTexto+' &nbsp;·&nbsp; '+
-        '✅ '+pct+'% checklist'+
-        (r.foto?'&nbsp;·&nbsp; 📸 foto':'')+''+
-      '</div>'+
-    '</div>';
-  }).join('');
+  wrap.innerHTML = regs.map(function(r){ return renderTarjetaJornada(r, false); }).join('');
 }
 
 // ════════════════════════════════════════════
@@ -4401,6 +4451,120 @@ async function borrarTodoElCurso(){
     console.error('borrarTodoElCurso error:', e);
   }
 }
+// ── ALUMNO: editar jornada existente
+var jornadaEditandoId = null;
+
+function editarJornada(jornadaId){
+  var jornada = misJornadas.find(function(j){ return j.id===jornadaId; });
+  if(!jornada){ toast('❌ Jornada no encontrada'); return; }
+  var estKey = (jornada.vehiculo_id||'__sv__')+'_'+jornada.proceso;
+  var estado = misVehProcEstados[estKey]||'en_curso';
+  if(estado!=='en_curso'){ toast('🔒 Este proceso ya fue entregado. No se puede editar.'); return; }
+
+  jornadaEditandoId = jornadaId;
+
+  // Ir a la pantalla de registro y precargar datos
+  showScreen('screenReg', 1);
+  irPaso(1);
+
+  // Preseleccionar vehículo
+  setTimeout(function(){
+    if(jornada.vehiculo_id){
+      selectVehiculoReg(jornada.vehiculo_id);
+      setTimeout(function(){
+        // Preseleccionar piezas
+        if(jornada.piezas_texto){
+          jornada.piezas_texto.split('|').forEach(function(p){
+            var pt = p.trim();
+            if(pt){ selPiezas[pt]=true; }
+          });
+          renderPiezasChips();
+          // Marcar chips visualmente
+          document.querySelectorAll('.pieza-chip').forEach(function(chip){
+            if(selPiezas[chip.textContent.trim()]) chip.classList.add('selected');
+          });
+        }
+        document.getElementById('btnSig1').disabled = false;
+        // Ir paso 2
+        irPaso(2);
+        setTimeout(function(){
+          // Preseleccionar proceso
+          var procOpt = document.querySelector('.proceso-opt[onclick*="\''+jornada.proceso+'\'"]');
+          if(procOpt && !procOpt.classList.contains('locked')){
+            selectProceso(procOpt, jornada.proceso);
+          }
+          // Preseleccionar horas
+          selHoras = [];
+          if(Array.isArray(jornada.horas)){
+            jornada.horas.forEach(function(h){
+              var btn = document.querySelector('.hora-btn[onclick*="'+h+'"]');
+              if(btn){ btn.classList.add('selected'); selHoras.push(h); }
+            });
+          }
+          checkSig2();
+          // Ir paso 3
+          irPaso(3);
+          setTimeout(function(){
+            // Precargar EPIs
+            epiState = JSON.parse(JSON.stringify(jornada.epi||{}));
+            document.querySelectorAll('.epi-toggle').forEach(function(btn){
+              var k = btn.getAttribute('data-epi');
+              if(k && epiState[k]){
+                btn.classList.add('active');
+                btn.setAttribute('aria-checked','true');
+              }
+            });
+            // Precargar observaciones
+            var obsEl = document.getElementById('obsInput');
+            if(obsEl) obsEl.value = jornada.observaciones||'';
+            // Precargar datos técnicos (checkState)
+            checkState = JSON.parse(JSON.stringify(jornada.checklist_taller||{}));
+            renderChecklist();
+            // Cambiar botón guardar a "Actualizar"
+            var btn = document.getElementById('btnGuardar');
+            if(btn){ btn.textContent='💾 Actualizar jornada'; btn.onclick=function(){ actualizarJornada(jornadaId); }; }
+            // Aviso
+            toast('✏️ Editando jornada del '+jornada.fecha+' — modifica lo que necesites y pulsa "Actualizar"');
+          }, 100);
+        }, 100);
+      }, 200);
+    }
+  }, 300);
+}
+
+async function actualizarJornada(jornadaId){
+  var btn = document.getElementById('btnGuardar');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Actualizando...'; }
+  var boolKeys = Object.keys(checkState).filter(function(k){ return typeof checkState[k]==='boolean'; });
+  var doneCheck = boolKeys.filter(function(k){ return checkState[k]; }).length;
+  var piezasTexto = Object.keys(selPiezas).join(' | ');
+  try{
+    var res = await sb.from('jornadas').update({
+      horas: selHoras.slice(),
+      piezas_texto: piezasTexto,
+      piezas_detalle: Object.keys(selPiezas).map(function(p){ return {nombre:p}; }),
+      checklist_taller: JSON.parse(JSON.stringify(checkState)),
+      epi: JSON.parse(JSON.stringify(epiState)),
+      check_done: doneCheck,
+      check_total: boolKeys.length,
+      observaciones: document.getElementById('obsInput').value||''
+    }).eq('id', jornadaId).select();
+    if(res.error) throw res.error;
+    // Actualizar en memoria
+    var idx = misJornadas.findIndex(function(j){ return j.id===jornadaId; });
+    if(idx>=0) misJornadas[idx] = Object.assign(misJornadas[idx], res.data[0]);
+    jornadaEditandoId = null;
+    // Restaurar botón
+    if(btn){ btn.textContent='✅ Guardar jornada'; btn.onclick=guardarJornada; btn.disabled=false; }
+    toast('✅ Jornada actualizada correctamente');
+    irPaso(4);
+  }catch(e){
+    toast('❌ Error al actualizar: '+(e.message||e));
+    if(btn){ btn.disabled=false; btn.textContent='💾 Actualizar jornada'; }
+    console.error('actualizarJornada error:', e);
+  }
+}
+
 // ── PWA: registrar service worker
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
