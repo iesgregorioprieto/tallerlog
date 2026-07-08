@@ -3052,7 +3052,7 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
     fRegs.forEach(function(r){ var id=r.vehiculoId||'__sv__'; if(vehIds.indexOf(id)<0) vehIds.push(id); });
 
     var panelId='evp_'+alumnoKey+'_'+fase;
-    var cerradosTodos=vehIds.length>0&&vehIds.every(function(vid){ return !!cierres[alumnoKey+'_'+vid+'_'+fase]; });
+    var cerradosTodos=vehIds.length>0&&vehIds.every(function(vid){ var cc=cierres[alumnoKey+'_'+vid+'_'+fase]; return cc && cc.nota!==null && cc.nota!==undefined; });
     // Verificar si el alumno ha solicitado cierre en algún vehículo de este proceso
     var solicita = false;
     fasesVehiculos[fase].forEach(function(fv){
@@ -3086,12 +3086,14 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
       html+='<div style="border-top:1px solid var(--border)">'+
         '<div style="padding:8px 18px;background:rgba(0,0,0,.04);display:flex;align-items:center;justify-content:space-between">'+
           '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:700;font-size:14px">🚗 '+vNombre.trim()+'</div>';
-      if(cierre&&!esRec){
+      if(cierre && cierre.nota!==null && cierre.nota!==undefined && !esRec){
         var nc=cierre.nota>=8?'#22c55e':cierre.nota>=5?'#f97316':'#ef4444';
         html+='<div style="display:flex;align-items:center;gap:10px">'+
           '<div class="proceso-cerrado-badge">🔒 '+cierre.fecha+'</div>'+
           '<div class="proceso-nota-final"><div class="proceso-nota-num" style="color:'+nc+'">'+cierre.nota.toFixed(1)+'</div><div class="proceso-nota-lbl">Nota</div></div>'+
         '</div>';
+      } else if(cierre && cierre.alumno_solicita_cierre && (cierre.nota===null||cierre.nota===undefined)){
+        html+='<div class="proceso-cerrado-badge" style="background:rgba(230,81,0,.12);color:#e65100;border-color:rgba(230,81,0,.4)">⚡ Entregado'+(cierre.fecha_solicitud?' · '+cierre.fecha_solicitud:'')+'</div>';
       }
       html+='</div>';
 
@@ -3107,7 +3109,7 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
 
       // Criterios
       if(!esRec){
-        if(cierre){
+        if(cierre && cierre.nota!==null && cierre.nota!==undefined){
           html+='<div class="proceso-grupo-header" style="color:#22c55e">✅ Criterios evaluados — proceso cerrado</div>';
           criterios.forEach(function(ce){
             var nId=(cierre.ceEvals||{})[ce.id]||null;
