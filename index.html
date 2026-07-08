@@ -2842,10 +2842,17 @@ function renderRegistrosTab(key, regs, vehiculos){
     var v=vehMap[vid];
     var vNombre=v?(v.marca||'')+' '+(v.modelo||'')+' '+(v.anio||''):'Sin vehículo asignado';
     var vRegs=regs.filter(function(r){ return (r.vehiculoId||'__sv__')===vid; }).slice().reverse();
+    var fichaPanelId='fichaVeh_'+key+'_'+vid;
     html+='<div style="margin:0 0 24px">'+
-      '<div style="padding:10px 16px;background:linear-gradient(135deg,rgba(21,101,192,.12),rgba(21,101,192,.04));border-left:4px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;margin-bottom:8px">'+
-        '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:17px;color:var(--text)">🚗 '+vNombre.trim()+'</div>'+
-        (v&&v.matricula?'<div style="font-size:12px;color:var(--text-dim)">'+v.matricula+(v.color?' · '+v.color:'')+'</div>':'')+
+      '<div onclick="toggleDetalle(\''+fichaPanelId+'\',this)" style="cursor:pointer;padding:10px 16px;background:linear-gradient(135deg,rgba(21,101,192,.12),rgba(21,101,192,.04));border-left:4px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;margin-bottom:8px;display:flex;align-items:center;gap:10px">'+
+        '<div style="flex:1">'+
+          '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:17px;color:var(--text)">🚗 '+vNombre.trim()+'</div>'+
+          (v&&v.matricula?'<div style="font-size:12px;color:var(--text-dim)">'+v.matricula+(v.color?' · '+v.color:'')+' · <span style="color:var(--accent);font-weight:700">pincha para ver la ficha del alumno ▼</span></div>':'')+
+        '</div>'+
+        '<span class="registro-chevron" style="color:var(--accent);font-size:16px">▼</span>'+
+      '</div>'+
+      '<div class="registro-detalle hidden" id="'+fichaPanelId+'" style="margin-bottom:12px">'+
+        renderFichaVehiculoProfesor(v)+
       '</div>';
     // Agrupar por proceso
     var fasesVeh=[];
@@ -3671,6 +3678,114 @@ async function solicitarCierre(btn){ return entregarProceso(btn); }
 // TABLA VISUAL DE PROCESO — vista del profesor
 // Muestra todas las jornadas en columnas, todos los ítems en filas
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// PROFESOR — Ficha completa del vehículo (lo que rellenó el alumno en la recepción)
+// ══════════════════════════════════════════════════════
+function renderFichaVehiculoProfesor(v){
+  if(!v) return '<div style="padding:20px;text-align:center;color:var(--text-dim);font-style:italic">Sin datos del vehículo.</div>';
+
+  var LBL_CARROCERIA = {turismo:'🚗 Turismo', suv:'🚙 SUV', furgoneta:'🚐 Furgoneta', pickup:'🛻 Pick-up'};
+  var LBL_ENTRADA = {siniestro:'💥 Siniestro', particular:'🔧 Particular', garantia:'📋 Garantía', practicas:'🎓 Prácticas FP'};
+  var LBL_CRISTAL = {ok:'✅ Sin daños', rayaduras:'〰️ Rayaduras', roturas:'💥 Roturas'};
+  var LBL_COND = {
+    documentacion:'📄 Documentación', rueda_repuesto:'🛞 Rueda repuesto', gato_herramienta:'🔩 Gato y herramienta',
+    extintor:'🧯 Extintor', triangulos:'⚠️ Triángulos', chalecos:'🦺 Chalecos',
+    objetos_valor:'💎 Objetos de valor', radio_gps:'📻 Radio / GPS'
+  };
+
+  function fila(label, val){
+    if(!val) return '';
+    return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">'+
+      '<span style="color:var(--text-dim);font-weight:600">'+label+'</span>'+
+      '<span style="font-weight:700;text-align:right">'+escHtml(String(val))+'</span></div>';
+  }
+
+  function seccion(icon, titulo, contenido){
+    if(!contenido) return '';
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px">'+
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:14px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--accent-light)">'+icon+' '+titulo+'</div>'+
+      contenido+
+    '</div>';
+  }
+
+  var html='<div style="padding:14px 16px;background:var(--accent-light);border-radius:var(--radius)">';
+
+  // 1. DATOS DEL VEHÍCULO
+  var datosVeh=
+    fila('Marca', v.marca)+
+    fila('Modelo', v.modelo)+
+    fila('Año', v.anio)+
+    fila('Matrícula', v.matricula)+
+    fila('Color', v.color)+
+    fila('Kilómetros', v.km?v.km+' km':'')+
+    fila('Nº bastidor (VIN)', v.vin)+
+    fila('Tipo de carrocería', LBL_CARROCERIA[v.tipo_carroceria]||v.tipo_carroceria)+
+    fila('Fecha de alta', v.fecha_alta||(v.created_at?new Date(v.created_at).toLocaleDateString('es-ES'):''));
+  html+=seccion('🚗', 'Datos del vehículo', datosVeh);
+
+  // 2. CLIENTE / SINIESTRO
+  var datosCli=
+    fila('Cliente', v.cliente)+
+    fila('Teléfono', v.telefono)+
+    fila('Compañía de seguros', v.seguro)+
+    fila('Nº expediente', v.expediente)+
+    fila('Tipo de entrada', LBL_ENTRADA[v.tipo_entrada]||v.tipo_entrada);
+  html+=seccion('👤', 'Cliente / siniestro', datosCli);
+
+  // 3. ESTADO EN RECEPCIÓN
+  var datosRec=fila('Nivel de combustible', v.combustible)+fila('Estado de cristales', LBL_CRISTAL[v.estado_cristal]||v.estado_cristal);
+  var cond=v.condicion||{};
+  if(Object.keys(cond).length){
+    var lineas='';
+    Object.keys(cond).forEach(function(k){
+      var estado=cond[k];
+      var color=estado==='ok'?'#22c55e':estado==='ko'?'#ef4444':'var(--text-dim)';
+      var icono=estado==='ok'?'✅':estado==='ko'?'❌':'—';
+      lineas+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">'+
+        '<span>'+(LBL_COND[k]||k)+'</span>'+
+        '<span style="color:'+color+';font-weight:700">'+icono+' '+(estado||'—')+'</span></div>';
+    });
+    datosRec+='<div style="margin-top:10px;font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase">Condición general</div>'+lineas;
+  }
+  html+=seccion('🔍', 'Estado en recepción', datosRec);
+
+  // 4. MAPA DE DAÑOS
+  var danos = v.danos_carroceria||{};
+  var piezasDanadas = Object.keys(danos).filter(function(k){
+    var d=danos[k];
+    if(typeof d==='boolean') return d;
+    if(typeof d==='object'&&d!==null) return d.dano||d.pintar||d.reparar||d.sustituir;
+    return !!d;
+  });
+  if(piezasDanadas.length){
+    var listaHtml='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">';
+    piezasDanadas.forEach(function(k){
+      var d=danos[k];
+      var extra='';
+      if(typeof d==='object'&&d!==null){
+        var flags=[];
+        if(d.pintar) flags.push('🎨 pintar');
+        if(d.reparar) flags.push('🔧 reparar');
+        if(d.sustituir) flags.push('🔄 sustituir');
+        if(flags.length) extra=' <span style="font-size:10px;color:var(--text-dim)">('+flags.join(', ')+')</span>';
+      }
+      listaHtml+='<span style="background:rgba(230,81,0,.12);border:1px solid rgba(230,81,0,.4);color:#e65100;padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700">💥 '+k.replace(/_/g,' ')+extra+'</span>';
+    });
+    listaHtml+='</div>';
+    html+=seccion('🗺️', piezasDanadas.length+' pieza'+(piezasDanadas.length!==1?'s':'')+' con daños', listaHtml);
+  } else {
+    html+=seccion('🗺️', 'Mapa de daños', '<div style="font-size:13px;color:var(--text-dim);font-style:italic">Sin daños registrados en el mapa.</div>');
+  }
+
+  // 5. OBSERVACIONES
+  if(v.observaciones){
+    html+=seccion('💬', 'Observaciones del alumno', '<div style="font-size:13px;line-height:1.5;white-space:pre-wrap">'+escHtml(v.observaciones)+'</div>');
+  }
+
+  html+='</div>';
+  return html;
+}
+
 function renderTablaProcesoCompleto(fase, fRegs, cierres, alumnoKey, vid){
   var fLabel = FASE_NAMES[fase] || fase;
   var totalHoras = fRegs.reduce(function(s,r){ return s+(Array.isArray(r.horas)?r.horas.length:0); }, 0);
