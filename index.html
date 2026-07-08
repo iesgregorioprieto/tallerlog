@@ -2886,13 +2886,17 @@ async function cerrarProceso(alumnoKey, vid, fase){
   var ceData = JSON.parse(JSON.stringify(tmp));
   try{
     // Buscar si ya existe un registro para este alumno+vehiculo+proceso
-    var resSelect = await sb.from('cierres').select('id').eq('alumno_id', alumnoKey).eq('proceso', fase);
+    var qSelect = sb.from('cierres').select('id')
+      .eq('alumno_id', alumnoKey)
+      .eq('proceso', fase);
+    if(vehiculoIdReal === null){
+      qSelect = qSelect.is('vehiculo_id', null);
+    } else {
+      qSelect = qSelect.eq('vehiculo_id', vehiculoIdReal);
+    }
+    var resSelect = await qSelect;
     if(resSelect.error) throw resSelect.error;
-    var filas = (resSelect.data||[]).filter(function(r){
-      if(vehiculoIdReal===null) return r.vehiculo_id===null || r.vehiculo_id===undefined;
-      return r.vehiculo_id===vehiculoIdReal;
-    });
-    var idExistente = filas.length>0 ? filas[0].id : null;
+    var idExistente = resSelect.data && resSelect.data.length > 0 ? resSelect.data[0].id : null;
     var resOp;
     if(idExistente){
       resOp = await sb.from('cierres').update({
