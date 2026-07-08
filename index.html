@@ -2805,24 +2805,40 @@ async function cerrarProceso(alumnoKey, vid, fase){
   });
   var nota = count>0 ? Math.round((total/count)*10)/10 : 0;
   var vehiculoIdReal = (vid==='__sv__') ? null : vid;
+  var fechaCierre = new Date().toLocaleDateString('es-ES');
+  var ceData = JSON.parse(JSON.stringify(tmp));
   try{
-    var res = await sb.from('cierres').upsert([{
-      alumno_id: alumnoKey,
-      vehiculo_id: vehiculoIdReal,
-      proceso: fase,
-      nota_final: nota,
-      ce_evaluaciones: JSON.parse(JSON.stringify(tmp)),
-      fecha_cierre: new Date().toLocaleDateString('es-ES')
-    }], {onConflict:'alumno_id,vehiculo_id,proceso'}).select();
-    if(res.error) throw res.error;
+    // Buscar si ya existe un registro para este alumno+vehiculo+proceso
+    var resSelect = await sb.from('cierres').select('id').eq('alumno_id', alumnoKey).eq('proceso', fase);
+    if(resSelect.error) throw resSelect.error;
+    var filas = (resSelect.data||[]).filter(function(r){
+      if(vehiculoIdReal===null) return r.vehiculo_id===null || r.vehiculo_id===undefined;
+      return r.vehiculo_id===vehiculoIdReal;
+    });
+    var idExistente = filas.length>0 ? filas[0].id : null;
+    var resOp;
+    if(idExistente){
+      resOp = await sb.from('cierres').update({
+        nota_final: nota, ce_evaluaciones: ceData,
+        fecha_cierre: fechaCierre, alumno_solicita_cierre: true
+      }).eq('id', idExistente).select();
+    } else {
+      resOp = await sb.from('cierres').insert([{
+        alumno_id: alumnoKey, vehiculo_id: vehiculoIdReal, proceso: fase,
+        nota_final: nota, ce_evaluaciones: ceData,
+        fecha_cierre: fechaCierre, alumno_solicita_cierre: true
+      }]).select();
+    }
+    if(resOp.error) throw resOp.error;
+    var dbId = resOp.data && resOp.data[0] ? resOp.data[0].id : idExistente;
     var cierreKey = alumnoKey+'_'+vid+'_'+fase;
-    cierresCache[cierreKey] = { ceEvals: Object.assign({},tmp), nota: nota, fecha: new Date().toLocaleDateString('es-ES'), dbId: res.data[0].id };
+    cierresCache[cierreKey] = { ceEvals: ceData, nota: nota, fecha: fechaCierre, dbId: dbId, alumno_solicita_cierre: true };
     delete evalTemp[tmpKey];
     toast('✅ Proceso cerrado — Nota: '+nota);
     renderFichaAlumno(alumnoKey);
   }catch(e){
     toast('❌ Error al cerrar el proceso: '+e.message);
-    console.error(e);
+    console.error('cerrarProceso error:', e);
   }
 }
 
