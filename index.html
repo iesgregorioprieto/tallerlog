@@ -3189,104 +3189,177 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
 }
 
 function renderResumen(alumnoKey, regs, cierres, faseActiva){
-  // Vista "Calificaciones": medias de CE por proceso cerrado, agrupadas por vehiculo
+  // Vista "Calificaciones": media aritmetica de CE por proceso (agrupado entre vehiculos)
   var fasesOrden=['desabollado','plasticos','enmasillado','aparejado','enmascarado','limpieza','pintado','barnizado','correccion'];
   var data=alumnosCache[alumnoKey];
   var vehMap={};
   if(data && data.vehiculos) data.vehiculos.forEach(function(v){ vehMap[v.id]=v; });
 
-  // Recopilar cierres con nota_final (solo procesos evaluados/cerrados)
-  var bloques=[]; // {vid, fase, cierre, fRegs}
   var vehIds=[];
   regs.forEach(function(r){ var id=r.vehiculoId||'__sv__'; if(vehIds.indexOf(id)<0) vehIds.push(id); });
 
+  // Agrupar por proceso -> lista de cierres con nota
+  var porProceso={}; // fase -> [{vid, cierre}]
   vehIds.forEach(function(vid){
     fasesOrden.forEach(function(fase){
       var c=cierres[alumnoKey+'_'+vid+'_'+fase];
       if(!c || c.nota===null || c.nota===undefined) return;
-      var fRegs=regs.filter(function(r){ return (r.vehiculoId||'__sv__')===vid && r.proceso===fase; });
-      bloques.push({vid:vid, fase:fase, cierre:c, fRegs:fRegs});
+      if(!porProceso[fase]) porProceso[fase]=[];
+      porProceso[fase].push({vid:vid, cierre:c});
     });
   });
 
-  if(!bloques.length){
+  var fasesConDatos=fasesOrden.filter(function(f){ return porProceso[f] && porProceso[f].length; });
+
+  if(!fasesConDatos.length){
     return '<div style="text-align:center;padding:48px 24px;color:var(--text-dim)">'+
       '<div style="font-size:48px;margin-bottom:12px">\uD83D\uDCCB</div>'+
       '<div style="font-weight:800;font-size:16px;margin-bottom:6px">Sin procesos calificados todav\u00EDa</div>'+
-      '<div style="font-size:13px">Cuando cierres un proceso desde la pesta\u00F1a Evaluaci\u00F3n aparecer\u00E1 aqu\u00ED.</div>'+
+      '<div style="font-size:13px">Cuando cierres un proceso desde Evaluaci\u00F3n aparecer\u00E1 aqu\u00ED.</div>'+
     '</div>';
   }
 
-  // Cabecera: nota media global
-  var sumNotas=0;
-  bloques.forEach(function(b){ sumNotas+=Number(b.cierre.nota); });
-  var mediaGlobal=sumNotas/bloques.length;
-  var mgColor=mediaGlobal>=8?'#22c55e':mediaGlobal>=5?'#f97316':'#ef4444';
+  // Media global del alumno (media de las medias por proceso)
+  var sumaMediasProceso=0;
+  var nProcesosConNota=0;
+  fasesConDatos.forEach(function(fase){
+    var items=porProceso[fase];
+    var esRec=CE_SOLO_RECORDATORIO.indexOf(fase)>=0;
+    if(esRec) return;
+    var sum=items.reduce(function(s,it){ return s+Number(it.cierre.nota); },0);
+    sumaMediasProceso+=sum/items.length;
+    nProcesosConNota++;
+  });
+  var mediaGlobal=nProcesosConNota>0?sumaMediasProceso/nProcesosConNota:null;
+  var mgColor=mediaGlobal===null?'var(--text-dim)':mediaGlobal>=8?'#22c55e':mediaGlobal>=5?'#f97316':'#ef4444';
 
-  var html='<div style="display:flex;align-items:center;gap:16px;padding:8px 0 20px">';
-  html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 24px;text-align:center">'+
-    '<div style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:900;color:'+mgColor+'">'+mediaGlobal.toFixed(1)+'</div>'+
-    '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Media global</div></div>';
-  html+='<div style="font-size:13px;color:var(--text-dim)">'+bloques.length+' proceso'+(bloques.length!==1?'s':'')+' calificado'+(bloques.length!==1?'s':'')+'</div>';
+  var totalCerrados=0;
+  fasesConDatos.forEach(function(f){ totalCerrados+=porProceso[f].length; });
+
+  var html='<div style="display:flex;align-items:center;gap:12px;padding:4px 0 20px;flex-wrap:wrap">';
+  if(mediaGlobal!==null){
+    html+='<div style="background:var(--surface2);border:2px solid '+mgColor+';border-radius:12px;padding:14px 22px;text-align:center">'+
+      '<div style="font-family:Barlow Condensed,sans-serif;font-size:38px;font-weight:900;color:'+mgColor+'">'+mediaGlobal.toFixed(1)+'</div>'+
+      '<div style="font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase">Media global</div>'+
+    '</div>';
+  }
+  html+='<div style="font-size:13px;color:var(--text-dim);line-height:1.6">'+
+    '<div><strong>'+fasesConDatos.length+'</strong> proceso'+(fasesConDatos.length!==1?'s':'')+' evaluado'+(fasesConDatos.length!==1?'s':'')+'</div>'+
+    '<div><strong>'+totalCerrados+'</strong> cierre'+(totalCerrados!==1?'s':'')+' totales</div>'+
+  '</div>';
   html+='</div>';
 
-  // Un panel por (vehiculo + proceso) cerrado
-  bloques.forEach(function(b){
-    var v=vehMap[b.vid];
-    var vLabel=v?((v.marca||'')+' '+(v.modelo||'')+(v.matricula?' ('+v.matricula+')':'')).trim():'Sin veh\u00EDculo';
-    var fLabel=FASE_NAMES[b.fase]||b.fase;
-    var criterios=CRITERIOS_EVALUACION[b.fase]||[];
-    var esRec=CE_SOLO_RECORDATORIO.indexOf(b.fase)>=0;
-    var notaColor=Number(b.cierre.nota)>=8?'#22c55e':Number(b.cierre.nota)>=5?'#f97316':'#ef4444';
+  // Un panel por PROCESO (no por vehiculo)
+  fasesConDatos.forEach(function(fase){
+    var items=porProceso[fase]; // [{vid, cierre}]
+    var fLabel=FASE_NAMES[fase]||fase;
+    var criterios=CRITERIOS_EVALUACION[fase]||[];
+    var esRec=CE_SOLO_RECORDATORIO.indexOf(fase)>=0;
 
-    html+='<div class="proceso-eval-panel" style="margin-bottom:14px">';
+    // Nota media del proceso entre todos los vehiculos
+    var notaMedia=items.reduce(function(s,it){ return s+Number(it.cierre.nota); },0)/items.length;
+    var nc=notaMedia>=8?'#22c55e':notaMedia>=5?'#f97316':'#ef4444';
 
-    // Cabecera del bloque
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;'+
-      'background:linear-gradient(135deg,rgba(21,101,192,.1),rgba(21,101,192,.03));border-bottom:1px solid var(--border)">';
+    html+='<div class="proceso-eval-panel" style="margin-bottom:16px">';
+
+    // CABECERA del proceso
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;'+
+      'background:linear-gradient(135deg,rgba(21,101,192,.1),rgba(21,101,192,.03));border-bottom:2px solid var(--border)">';
     html+='<div>'+
-      '<div style="font-family:Barlow Condensed,sans-serif;font-weight:900;font-size:18px">'+fLabel+'</div>'+
-      '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">\uD83D\uDE97 '+escHtml(vLabel)+
-        (b.cierre.fecha?' \u00A0\u00B7\u00A0 \uD83D\uDCC5 Cerrado: '+b.cierre.fecha:'')+'</div>'+
+      '<div style="font-family:Barlow Condensed,sans-serif;font-weight:900;font-size:20px">'+fLabel+'</div>'+
+      '<div style="font-size:11px;color:var(--text-dim);margin-top:3px">'+
+        items.length+' veh\u00EDculo'+(items.length!==1?'s':'')+' evaluado'+(items.length!==1?'s':'')+' \u00B7 '+
+        items.map(function(it){
+          var v=vehMap[it.vid];
+          return v?((v.marca||'')+' '+(v.modelo||'')).trim():'?';
+        }).join(' \u00B7 ')+
+      '</div>'+
     '</div>';
     if(!esRec){
-      html+='<div style="text-align:center;background:var(--surface);border:2px solid '+notaColor+';border-radius:12px;padding:8px 16px">'+
-        '<div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:900;color:'+notaColor+'">'+Number(b.cierre.nota).toFixed(1)+'</div>'+
-        '<div style="font-size:9px;color:var(--text-dim);font-weight:700;text-transform:uppercase">Nota final</div>'+
+      html+='<div style="text-align:center;background:var(--surface);border:2px solid '+nc+';border-radius:12px;padding:10px 18px">'+
+        '<div style="font-family:Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:'+nc+'">'+notaMedia.toFixed(1)+'</div>'+
+        '<div style="font-size:9px;color:var(--text-dim);font-weight:700;text-transform:uppercase">Media proceso</div>'+
       '</div>';
     } else {
-      html+='<div style="font-size:11px;color:var(--text-dim);font-style:italic">Sin calificaci\u00F3n num\u00E9rica</div>';
+      html+='<div style="font-size:11px;color:var(--text-dim);font-style:italic">Solo recordatorio</div>';
     }
     html+='</div>';
 
-    // Tabla de CE
-    if(criterios.length){
-      html+='<div style="padding:0">';
+    // Chips de nota por vehiculo
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px;background:rgba(0,0,0,.03);border-bottom:1px solid var(--border)">';
+    items.forEach(function(it){
+      var v=vehMap[it.vid];
+      var vNom=v?((v.marca||'')+' '+(v.modelo||'')).trim():'Veh\u00EDculo';
+      var n=Number(it.cierre.nota);
+      var c2=n>=8?'#22c55e':n>=5?'#f97316':'#ef4444';
+      html+='<div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:11px">'+
+        '<span style="color:var(--text-dim)">\uD83D\uDE97 '+escHtml(vNom)+(it.cierre.fecha?' \u00B7 '+it.cierre.fecha:'')+'</span>'+
+        (esRec?'':' <strong style="color:'+c2+'">'+n.toFixed(1)+'</strong>')+
+      '</div>';
+    });
+    html+='</div>';
+
+    // TABLA de CE con media aritmetica
+    if(!esRec && criterios.length){
+      // Cabecera tabla
+      html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+      html+='<thead><tr style="background:rgba(21,101,192,.06)">';
+      html+='<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;width:40px">CE</th>';
+      html+='<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700">Criterio de evaluaci\u00F3n</th>';
+      items.forEach(function(it){
+        var v=vehMap[it.vid];
+        var vNom=v?((v.marca||'')+' '+(v.modelo||'')).trim():'?';
+        html+='<th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-dim);font-weight:700;white-space:nowrap">\uD83D\uDE97 '+escHtml(vNom)+'</th>';
+      });
+      html+='<th style="padding:8px 12px;text-align:center;font-size:11px;color:var(--accent);font-weight:800;white-space:nowrap">Media CE</th>';
+      html+='</tr></thead><tbody>';
+
       criterios.forEach(function(ce){
-        var nivelId=(b.cierre.ceEvals||{})[ce.id];
-        var nivel=nivelId?CE_NIVELES.find(function(n){return n.id===nivelId;}):null;
         var isEpi=ce.epi===true;
-        html+='<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border);'+
-          (isEpi?'background:rgba(21,101,192,.04)':'')+'">'+
-          '<div style="flex-shrink:0;margin-top:1px">'+
+        var puntosCE=[];
+        items.forEach(function(it){
+          var nivelId=(it.cierre.ceEvals||{})[ce.id];
+          var nivel=nivelId?CE_NIVELES.find(function(n){return n.id===nivelId;}):null;
+          puntosCE.push(nivel?nivel:null);
+        });
+        var evaluados=puntosCE.filter(function(n){return n!==null;});
+        var mediaCE=evaluados.length>0?evaluados.reduce(function(s,n){return s+n.puntos;},0)/evaluados.length:null;
+        var mcColor=mediaCE===null?'var(--text-dim)':mediaCE>=8?'#22c55e':mediaCE>=5?'#f97316':'#ef4444';
+
+        html+='<tr style="border-bottom:1px solid var(--border);'+(isEpi?'background:rgba(21,101,192,.04)':'')+'">'+
+          '<td style="padding:8px 12px;vertical-align:top">'+
             '<div class="eval-ce-badge"'+(isEpi?' style="background:rgba(21,101,192,.18)"':'')+'>'+ce.ce+'</div>'+
             '<div style="font-size:9px;color:var(--text-dim);text-align:center;margin-top:2px">'+ce.ra+'</div>'+
-          '</div>'+
-          '<div style="flex:1;font-size:12px;line-height:1.4;color:var(--text)">'+ce.texto+'</div>'+
-          '<div style="flex-shrink:0;text-align:right">'+
-            (nivel
-              ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:800;background:'+nivel.bg+';border:1px solid '+nivel.color+';color:'+nivel.color+'">'+nivel.puntos+' &mdash; '+nivel.label+'</span>'
-              : '<span style="font-size:11px;color:var(--text-dim)">Sin evaluar</span>'
-            )+
-          '</div>'+
-        '</div>';
+          '</td>'+
+          '<td style="padding:8px 12px;line-height:1.4;color:var(--text)">'+ce.texto+'</td>';
+
+        puntosCE.forEach(function(nivel){
+          html+='<td style="padding:8px 10px;text-align:center;vertical-align:middle">';
+          if(nivel){
+            html+='<span style="display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800;'+
+              'background:'+nivel.bg+';border:1px solid '+nivel.color+';color:'+nivel.color+'" title="'+nivel.label+'">'+nivel.puntos+'</span>';
+          } else {
+            html+='<span style="color:var(--text-dim);font-size:11px">\u2014</span>';
+          }
+          html+='</td>';
+        });
+
+        html+='<td style="padding:8px 12px;text-align:center;vertical-align:middle">'+
+          (mediaCE!==null
+            ? '<strong style="font-size:14px;color:'+mcColor+'">'+mediaCE.toFixed(1)+'</strong>'
+            : '<span style="color:var(--text-dim);\">—</span>')+
+        '</td>';
+        html+='</tr>';
       });
-      html+='</div>';
+
+      html+='</tbody></table></div>';
+    } else if(esRec){
+      html+='<div style="padding:12px 18px;font-size:12px;color:var(--text-dim);font-style:italic">Proceso de repaso \u2014 sin criterios de evaluaci\u00F3n num\u00E9rica.</div>';
     } else {
       html+='<div style="padding:12px 18px;font-size:12px;color:var(--text-dim);font-style:italic">Sin criterios definidos para este proceso.</div>';
     }
 
-    html+='</div>'; // cierre panel
+    html+='</div>'; // cierre panel proceso
   });
 
   return html;
