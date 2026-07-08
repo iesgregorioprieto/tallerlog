@@ -1518,15 +1518,16 @@ function updateDashboard(){
   regs.forEach(function(r){
     if(r.checkTotal){ totalCheck+=r.checkTotal; doneCheck+=r.checkDone; }
   });
-  document.getElementById('statJornadas').textContent=jornadas;
-  document.getElementById('statHoras').textContent=horas;
-  document.getElementById('statCheck').textContent=totalCheck>0?Math.round(doneCheck/totalCheck*100)+'%':'—';
+  var stJ=document.getElementById('statJornadas'); if(stJ) stJ.textContent=jornadas;
+  var stH=document.getElementById('statHoras');    if(stH) stH.textContent=horas;
+  var stC=document.getElementById('statCheck');    if(stC) stC.textContent=totalCheck>0?Math.round(doneCheck/totalCheck*100)+'%':'—';
   renderUltimasJornadas();
 }
 
 function renderUltimasJornadas(){
   var regs = (lS(K.registros)||[]).slice().reverse().slice(0,3);
   var wrap = document.getElementById('ultimasJornadas');
+  if(!wrap) return;
   if(!regs.length){
     wrap.innerHTML='<div class="empty-state"><span class="es-icon">📝</span><p>Aún no tienes jornadas registradas.<br>¡Empieza tu primera práctica!</p></div>';
     return;
@@ -2387,6 +2388,7 @@ function borrarFotoV(angulo,e){
 function renderHistorial(){
   var regs=(lS(K.registros)||[]).slice().reverse();
   var wrap=document.getElementById('historialList');
+  if(!wrap) return;
   if(!regs.length){
     wrap.innerHTML='<div class="empty-state"><span class="es-icon">📚</span><p>Tu historial está vacío.<br>Cuando registres jornadas aparecerán aquí.</p></div>';
     return;
@@ -2420,8 +2422,8 @@ function renderResumenExport(){
   var vehiculos=lS(K.vehiculos)||[];
   var horas=regs.reduce(function(s,r){ return s+(Array.isArray(r.horas)?r.horas.length:0); },0);
   var wrap=document.getElementById('resumenExport');
+  if(!wrap) return;
   wrap.innerHTML=
-    '<div style="display:flex;flex-direction:column;gap:8px">'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-weight:700;color:var(--text-dim)">👷 Alumno</span><span style="font-weight:800">'+( currentAlumno?currentAlumno.nombre:'—')+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-weight:700;color:var(--text-dim)">🚗 Vehículos</span><span style="font-weight:800">'+vehiculos.length+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-weight:700;color:var(--text-dim)">📅 Jornadas</span><span style="font-weight:800">'+regs.length+'</span></div>'+
