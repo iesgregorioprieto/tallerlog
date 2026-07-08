@@ -1025,6 +1025,7 @@ textarea.finput{resize:vertical;min-height:80px;}
       <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px">
         <button onclick="abrirGestion()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px 8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer">➕ Nuevo alumno</button>
         <button onclick="recargarAlumnos()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;cursor:pointer;font-size:14px" title="Recargar lista">🔄</button>
+        <button onclick="abrirFinCurso()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;cursor:pointer;font-size:14px" title="Fin de curso: exportar y borrar todo">📅</button>
       </div>
       <div class="sidebar-section">👷 Alumnos del taller</div>
       <div id="sidebarAlumnos"><div class="sidebar-empty">Cargando alumnos...</div></div>
@@ -3153,6 +3154,11 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
             '<button class="btn-cerrar-proceso" id="btnCerrar-'+alumnoKey+'-'+vid+'-'+fase+'" '+
               'onclick="cerrarProceso(\''+alumnoKey+'\',\''+vid+'\',\''+fase+'\')" disabled>'+
               '🔒 Cerrar y guardar evaluación de '+fLabel+'</button>'+
+            (cierre && cierre.alumno_solicita_cierre ?
+              '<button onclick="anularEntrega(\''+alumnoKey+'\',\''+vid+'\',\''+fase+'\')" '+
+                'style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer" '+
+                'title="Devuelve el proceso al alumno para que añada más jornadas">↩️ Anular entrega</button>'
+              : '')+
             '<span style="font-size:12px;color:var(--text-dim)">Evalúa todos los criterios para poder cerrar</span>'+
           '</div>';
         }
@@ -3851,6 +3857,253 @@ function resolverExtra(def, checkData){
     return sel.length ? sel.join(', ') : null;
   }
   return null;
+}
+
+// ══════════════════════════════════════════════════════
+// PROFESOR — Anular entrega (devuelve el proceso al alumno)
+// ══════════════════════════════════════════════════════
+async function anularEntrega(alumnoKey, vid, fase){
+  var fLabel = FASE_NAMES[fase]||fase;
+  if(!confirm('¿Anular la entrega de "'+fLabel+'"?\n\nEl alumno podrá volver a añadir más jornadas de este proceso y volver a entregarlo.\n\nSe conservarán las jornadas ya registradas y cualquier evaluación temporal.')) return;
+  var cierreKey = alumnoKey+'_'+vid+'_'+fase;
+  var cierre = cierresCache[cierreKey];
+  if(!cierre || !cierre.dbId){ toast('❌ No se encuentra el registro de entrega.'); return; }
+  try{
+    var res = await sb.from('cierres')
+      .update({ alumno_solicita_cierre: false, fecha_solicitud: null })
+      .eq('id', cierre.dbId);
+    if(res.error) throw res.error;
+    // Actualizar cache local
+    cierre.alumno_solicita_cierre = false;
+    cierre.fecha_solicitud = null;
+    // Si además no tenía nota, borrar completamente el cierre para que el alumno pueda seguir sin restricciones
+    if(cierre.nota===null || cierre.nota===undefined){
+      await sb.from('cierres').delete().eq('id', cierre.dbId);
+      delete cierresCache[cierreKey];
+    }
+    toast('✅ Entrega anulada. El alumno puede seguir trabajando.');
+    // Refrescar vista
+    abrirAlumno(alumnoKey);
+  }catch(e){
+    toast('❌ Error al anular: '+(e.message||e));
+    console.error('anularEntrega error:', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PROFESOR — Fin de curso: exportar y borrar todo
+// ══════════════════════════════════════════════════════
+function abrirFinCurso(){
+  var main = document.getElementById('mainContent');
+  if(!main) return;
+  alumnoActivo = null;
+  document.querySelectorAll('.alumno-item').forEach(function(el){ el.classList.remove('active'); });
+
+  main.innerHTML =
+    '<div style="max-width:720px;margin:0 auto;padding:24px">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">'+
+        '<div style="font-size:36px">📅</div>'+
+        '<div>'+
+          '<div style="font-family:Barlow Condensed,sans-serif;font-weight:900;font-size:28px;color:var(--accent)">Fin de curso</div>'+
+          '<div style="font-size:13px;color:var(--text-dim)">Exporta los datos del curso y prepara la app para el próximo curso</div>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="card" style="margin-bottom:16px"><div class="card-body">'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+          '<span style="font-size:22px">📊</span>'+
+          '<div style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:18px">Paso 1 — Exportar el curso a Excel</div>'+
+        '</div>'+
+        '<div style="font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:14px">'+
+          'Descarga un archivo Excel con todos los datos del curso: alumnos, vehículos, jornadas, procesos entregados, criterios evaluados y notas finales. '+
+          'Guárdalo en tu ordenador antes de borrar nada.'+
+        '</div>'+
+        '<button id="btnExportCurso" onclick="exportarCursoExcel()" '+
+          'style="background:var(--success);color:#fff;border:none;border-radius:var(--radius-sm);padding:12px 20px;font-family:Nunito,sans-serif;font-weight:800;font-size:14px;cursor:pointer">'+
+          '📥 Descargar Excel del curso</button>'+
+      '</div></div>'+
+
+      '<div class="card" style="border:2px solid var(--danger)"><div class="card-body">'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+          '<span style="font-size:22px">⚠️</span>'+
+          '<div style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:18px;color:var(--danger)">Paso 2 — Borrar todo</div>'+
+        '</div>'+
+        '<div style="font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:14px">'+
+          '<strong>Esta acción es irreversible.</strong> Se borrarán TODOS los datos:<br>'+
+          '&bull; Alumnos y sus contraseñas<br>'+
+          '&bull; Vehículos asignados<br>'+
+          '&bull; Jornadas y fotos<br>'+
+          '&bull; Procesos entregados y evaluaciones<br><br>'+
+          'La app quedará lista para el próximo curso.'+
+        '</div>'+
+        '<button onclick="borrarTodoElCurso()" '+
+          'style="background:var(--danger);color:#fff;border:none;border-radius:var(--radius-sm);padding:12px 20px;font-family:Nunito,sans-serif;font-weight:800;font-size:14px;cursor:pointer">'+
+          '🗑️ Borrar todo el curso</button>'+
+      '</div></div>'+
+
+      '<div style="text-align:center;margin-top:20px">'+
+        '<button onclick="renderSidebarCompleto();document.getElementById(\'mainContent\').innerHTML=\'<div class=&quot;welcome&quot;><div class=&quot;welcome-icon&quot;>📋</div><div class=&quot;welcome-title&quot;>Panel del Profesor</div><div class=&quot;welcome-subtitle&quot;>Selecciona un alumno del panel lateral para ver sus registros</div></div>\'" '+
+          'style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;text-decoration:underline">← Volver</button>'+
+      '</div>'+
+    '</div>';
+}
+
+// Exportar todo el curso a Excel (formato CSV con BOM UTF-8 compatible con Excel)
+async function exportarCursoExcel(){
+  var btn = document.getElementById('btnExportCurso');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Preparando...'; }
+  try{
+    // Descargar todos los datos
+    var [rA, rV, rJ, rC] = await Promise.all([
+      sb.from('alumnos').select('*').order('apellidos'),
+      sb.from('vehiculos').select('*'),
+      sb.from('jornadas').select('*').order('fecha'),
+      sb.from('cierres').select('*')
+    ]);
+    if(rA.error) throw rA.error;
+    if(rV.error) throw rV.error;
+    if(rJ.error) throw rJ.error;
+    if(rC.error) throw rC.error;
+
+    var alumnos = rA.data||[];
+    var vehiculos = rV.data||[];
+    var jornadas = rJ.data||[];
+    var cierres = rC.data||[];
+
+    var alumnoMap = {}; alumnos.forEach(function(a){ alumnoMap[a.id]=a; });
+    var vehMap = {}; vehiculos.forEach(function(v){ vehMap[v.id]=v; });
+
+    function csvEsc(s){
+      if(s===null||s===undefined) return '';
+      s = String(s);
+      if(s.indexOf(';')>=0 || s.indexOf('"')>=0 || s.indexOf('\n')>=0 || s.indexOf('\r')>=0) return '"'+s.replace(/"/g,'""')+'"';
+      return s;
+    }
+    function toCSV(rows){
+      return rows.map(function(r){ return r.map(csvEsc).join(';'); }).join('\r\n');
+    }
+
+    // HOJA 1 — Alumnos
+    var hAlumnos = [['ID','Nombre','Apellidos','Grupo','Usuario','Fecha alta']];
+    alumnos.forEach(function(a){
+      hAlumnos.push([a.id, a.nombre||'', a.apellidos||'', a.grupo||'', a.usuario||'', a.created_at||'']);
+    });
+
+    // HOJA 2 — Vehículos
+    var hVeh = [['ID','Alumno','Marca','Modelo','Año','Matrícula','Color','Fecha alta']];
+    vehiculos.forEach(function(v){
+      var a = alumnoMap[v.alumno_id];
+      hVeh.push([v.id, a?(a.nombre+' '+a.apellidos):'', v.marca||'', v.modelo||'', v.anio||'', v.matricula||'', v.color||'', v.created_at||'']);
+    });
+
+    // HOJA 3 — Jornadas
+    var hJor = [['Fecha','Alumno','Vehículo','Proceso','Horas','Piezas','Observaciones']];
+    jornadas.forEach(function(j){
+      var a = alumnoMap[j.alumno_id];
+      var v = vehMap[j.vehiculo_id];
+      var vNom = v?((v.marca||'')+' '+(v.modelo||'')+(v.matricula?' ('+v.matricula+')':'')).trim():'';
+      var horas = Array.isArray(j.horas)?j.horas.length:0;
+      hJor.push([j.fecha||'', a?(a.nombre+' '+a.apellidos):'', vNom, j.proceso||'', horas, j.piezas_texto||'', j.observaciones||'']);
+    });
+
+    // HOJA 4 — Procesos y evaluaciones
+    var hEval = [['Alumno','Vehículo','Proceso','Estado','Fecha entrega','Fecha cierre','Nota final','CE evaluados']];
+    cierres.forEach(function(c){
+      var a = alumnoMap[c.alumno_id];
+      var v = vehMap[c.vehiculo_id];
+      var vNom = v?((v.marca||'')+' '+(v.modelo||'')+(v.matricula?' ('+v.matricula+')':'')).trim():'';
+      var estado = (c.nota_final!==null&&c.nota_final!==undefined) ? 'Cerrado' : (c.alumno_solicita_cierre?'Entregado':'En curso');
+      var ceStr = '';
+      if(c.ce_evaluaciones){
+        try{
+          var evals = typeof c.ce_evaluaciones==='string'?JSON.parse(c.ce_evaluaciones):c.ce_evaluaciones;
+          var parts = [];
+          Object.keys(evals).forEach(function(k){
+            var lvl = CE_NIVELES.find(function(n){ return n.id===evals[k]; });
+            parts.push(k+':'+(lvl?lvl.label+'('+lvl.puntos+')':evals[k]));
+          });
+          ceStr = parts.join(' | ');
+        }catch(e){ ceStr = String(c.ce_evaluaciones); }
+      }
+      hEval.push([
+        a?(a.nombre+' '+a.apellidos):'',
+        vNom, c.proceso||'', estado,
+        c.fecha_solicitud||'', c.fecha_cierre||'',
+        (c.nota_final!==null&&c.nota_final!==undefined)?c.nota_final:'',
+        ceStr
+      ]);
+    });
+
+    // Generar 4 archivos CSV separados dentro de un ZIP no — mejor un CSV multi-tab estilo texto
+    // Para máxima compatibilidad hacemos 4 descargas CSV independientes
+    var fecha = new Date().toISOString().split('T')[0];
+    function descargar(nombre, contenido){
+      var BOM = '\uFEFF';
+      var blob = new Blob([BOM+contenido], {type:'text/csv;charset=utf-8'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = nombre;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 100);
+    }
+    descargar('TallerLog_'+fecha+'_1_Alumnos.csv', toCSV(hAlumnos));
+    descargar('TallerLog_'+fecha+'_2_Vehiculos.csv', toCSV(hVeh));
+    descargar('TallerLog_'+fecha+'_3_Jornadas.csv', toCSV(hJor));
+    descargar('TallerLog_'+fecha+'_4_Evaluaciones.csv', toCSV(hEval));
+
+    if(btn){ btn.textContent = '✅ 4 archivos descargados'; setTimeout(function(){ btn.disabled=false; btn.textContent='📥 Volver a descargar Excel del curso'; }, 3000); }
+    toast('✅ Curso exportado: 4 archivos CSV descargados (abrir con Excel)');
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='📥 Descargar Excel del curso'; }
+    toast('❌ Error al exportar: '+(e.message||e));
+    console.error('exportarCursoExcel error:', e);
+  }
+}
+
+// Borrar todo con doble confirmación
+async function borrarTodoElCurso(){
+  // Primera confirmación
+  if(!confirm('⚠️ PRIMERA CONFIRMACIÓN\n\n¿Estás SEGURO de que quieres borrar TODOS los datos del curso?\n\nSe borrarán:\n • Todos los alumnos\n • Todos los vehículos\n • Todas las jornadas y fotos\n • Todas las entregas y evaluaciones\n\nEsta acción NO se puede deshacer.\n\n¿Continuar?')) return;
+
+  // Segunda confirmación con texto
+  var confirmacion = prompt('⚠️ SEGUNDA CONFIRMACIÓN\n\nPara confirmar el borrado total, escribe exactamente:\n\nBORRAR TODO\n\n(en mayúsculas)');
+  if(confirmacion !== 'BORRAR TODO'){
+    toast('❌ Borrado cancelado — el texto no coincide');
+    return;
+  }
+
+  try{
+    toast('⏳ Borrando datos... no cierres la ventana');
+    // Orden: hijas primero por si hubiese FK sin cascade
+    var errores = [];
+    // fotos
+    try{ var r1 = await sb.from('fotos').delete().gt('id','00000000-0000-0000-0000-000000000000'); if(r1.error) errores.push('fotos:'+r1.error.message); }catch(e){ errores.push('fotos:'+e.message); }
+    // evaluaciones (por si aún existe la tabla)
+    try{ var r2 = await sb.from('evaluaciones').delete().gt('id','00000000-0000-0000-0000-000000000000'); }catch(e){ /* tabla puede no existir */ }
+    // cierres
+    var r3 = await sb.from('cierres').delete().gt('id','00000000-0000-0000-0000-000000000000');
+    if(r3.error) errores.push('cierres:'+r3.error.message);
+    // jornadas
+    var r4 = await sb.from('jornadas').delete().gt('id','00000000-0000-0000-0000-000000000000');
+    if(r4.error) errores.push('jornadas:'+r4.error.message);
+    // vehiculos
+    var r5 = await sb.from('vehiculos').delete().gt('id','00000000-0000-0000-0000-000000000000');
+    if(r5.error) errores.push('vehiculos:'+r5.error.message);
+    // alumnos
+    var r6 = await sb.from('alumnos').delete().gt('id','00000000-0000-0000-0000-000000000000');
+    if(r6.error) errores.push('alumnos:'+r6.error.message);
+
+    if(errores.length){
+      alert('⚠️ Borrado parcial. Errores:\n\n'+errores.join('\n')+'\n\nRevisa en Supabase.');
+    } else {
+      alert('✅ Todo borrado correctamente.\n\nLa app está lista para el próximo curso.');
+    }
+    // Recargar
+    location.reload();
+  }catch(e){
+    toast('❌ Error: '+(e.message||e));
+    console.error('borrarTodoElCurso error:', e);
+  }
 }
 
 </script>
