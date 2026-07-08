@@ -1296,9 +1296,10 @@ async function guardarJornada(){
     if(sb_el) sb_el.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)">☁️ Guardado en la nube correctamente</span>';
     irPaso(4);
   }catch(e){
-    toast('❌ Error al guardar. Revisa tu conexión.');
+    var msg = e.message || (e.details) || JSON.stringify(e);
+    toast('❌ Error al guardar: '+msg);
     btn.disabled=false; btn.textContent='✅ Guardar jornada';
-    console.error(e);
+    console.error('guardarJornada error:', e);
   }
 }
 
