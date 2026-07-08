@@ -533,6 +533,35 @@ textarea.finput{resize:vertical;min-height:80px;}
         <div class="login-error" id="loginError"></div>
       </div>
 
+      <!-- PRIMERA VEZ: crear cuenta de profesor -->
+      <div id="loginPrimeraVezBtn" style="margin-top:18px;text-align:center">
+        <button onclick="mostrarPrimeraVez()" style="background:none;border:none;color:var(--text-dim);font-size:12px;cursor:pointer;text-decoration:underline">
+          ¿Primera vez? Crear cuenta de profesor
+        </button>
+      </div>
+      <div id="loginPrimeraVezForm" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+        <div style="font-size:13px;font-weight:800;color:var(--accent);text-align:center;margin-bottom:14px">👨‍🏫 Crear cuenta de profesor</div>
+        <div class="login-field">
+          <label>Tu nombre</label>
+          <input type="text" id="pvNombre" placeholder="Ej: Luis Javier">
+        </div>
+        <div class="login-field">
+          <label>Elige una contraseña</label>
+          <input type="password" id="pvPass" placeholder="Contraseña segura">
+        </div>
+        <div class="login-field">
+          <label>Confirma la contraseña</label>
+          <input type="password" id="pvPass2" placeholder="Repite la contraseña" onkeydown="if(event.key==='Enter')crearProfesor()">
+        </div>
+        <button onclick="crearProfesor()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;cursor:pointer;margin-top:4px">
+          Crear cuenta y entrar →
+        </button>
+        <div id="pvError" class="login-error"></div>
+        <div style="margin-top:10px;text-align:center">
+          <button onclick="ocultarPrimeraVez()" style="background:none;border:none;color:var(--text-dim);font-size:12px;cursor:pointer">← Cancelar</button>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -1098,6 +1127,47 @@ function volverRol(){
   btn.disabled = false; btn.textContent = 'Entrar al taller →';
 }
 
+function mostrarPrimeraVez(){
+  document.getElementById('loginPrimeraVezBtn').style.display='none';
+  document.getElementById('loginPrimeraVezForm').style.display='block';
+  document.getElementById('loginRolStep').style.display='none';
+  document.getElementById('loginFormStep').style.display='none';
+}
+function ocultarPrimeraVez(){
+  document.getElementById('loginPrimeraVezBtn').style.display='block';
+  document.getElementById('loginPrimeraVezForm').style.display='none';
+  document.getElementById('loginRolStep').style.display='block';
+}
+async function crearProfesor(){
+  var nombre = document.getElementById('pvNombre').value.trim();
+  var pass   = document.getElementById('pvPass').value.trim();
+  var pass2  = document.getElementById('pvPass2').value.trim();
+  var err    = document.getElementById('pvError');
+  err.style.display='none';
+  if(!nombre){ err.textContent='⚠️ Escribe tu nombre.'; err.style.display='block'; return; }
+  if(!pass || pass.length < 4){ err.textContent='⚠️ La contraseña debe tener al menos 4 caracteres.'; err.style.display='block'; return; }
+  if(pass !== pass2){ err.textContent='⚠️ Las contraseñas no coinciden.'; err.style.display='block'; return; }
+  try{
+    // Comprobar que no existe ya un profesor
+    var chk = await sb.from('alumnos').select('id').eq('rol','profesor');
+    if(chk.data && chk.data.length > 0){
+      err.textContent='⚠️ Ya existe una cuenta de profesor. Usa el formulario normal.';
+      err.style.display='block'; return;
+    }
+    var res = await sb.from('alumnos').insert([{
+      nombre: nombre, apellidos: '', rol: 'profesor',
+      password: pass, activo: true, grupo: 'Profesor'
+    }]).select();
+    if(res.error) throw res.error;
+    currentUser = res.data[0];
+    sessionStorage.setItem('tl_user', JSON.stringify(currentUser));
+    startApp();
+  }catch(e){
+    err.textContent='❌ Error: '+(e.message||e);
+    err.style.display='block';
+    console.error('crearProfesor error:', e);
+  }
+}
 async function doLogin(){
   var nombre = document.getElementById('loginNombre').value.trim();
   var pass = document.getElementById('loginPassword').value.trim();
