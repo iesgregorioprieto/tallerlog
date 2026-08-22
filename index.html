@@ -1411,16 +1411,6 @@ function exportarCuaderno(){
   toast('☁️ Tus datos ya están en la nube. ¡El profesor los ve directamente!');
 }
 
-// ════════════════════════════════════════════
-// STORAGE
-// ════════════════════════════════════════════
-var K = {
-  alumno: 'tl2_alumno',
-  vehiculos: 'tl2_vehiculos',
-  registros: 'tl2_registros',
-};
-
-
 
 // ════════════════════════════════════════════
 // STATE
@@ -1477,11 +1467,6 @@ function renderLoginExisting(){
   // No hay alumnos previos en este dispositivo
   document.getElementById('loginExistingWrap').style.display='none';
 }
-
-
-
-
-
 
 
 // ════════════════════════════════════════════
@@ -2398,7 +2383,6 @@ function borrarFotoV(angulo,e){
 }
 
 
-
 // ════════════════════════════════════════════
 // HISTORIAL
 // ════════════════════════════════════════════
@@ -2521,46 +2505,15 @@ function renderResumenExport(){
 }
 
 
-
 // ════════════════════════════════════════════
 // LIGHTBOX
 // ════════════════════════════════════════════
-
 
 
 // ══════════════════════════════════════════
 // PROFESOR — SUPABASE DATA LAYER
 // ══════════════════════════════════════════
 var alumnosLista = [];
-var alumnoActivo = null;
-var activeTab = 'registros';
-function renderSidebarProf(lista){
-  var wrap = document.getElementById('sidebarAlumnos');
-  if(!lista.length){
-    wrap.innerHTML='<div class="sidebar-empty">No hay alumnos registrados todavía.</div>';
-    return;
-  }
-  wrap.innerHTML = lista.map(function(a){
-    var ini = ((a.nombre||'')[0]||'') + ((a.apellidos||'')[0]||'');
-    var actv = alumnoActivo && alumnoActivo.id===a.id ? ' active' : '';
-    return '<div class="alumno-item'+actv+'" onclick="verAlumnoSupabase('+JSON.stringify(a)+')" data-id="'+a.id+'">'+
-      '<div class="alumno-avatar">'+ini.toUpperCase()+'</div>'+
-      '<div><div class="alumno-nombre">'+a.nombre+' '+a.apellidos+'</div>'+
-      '<div class="alumno-meta">'+(a.grupo||'')+'</div></div></div>';
-  }).join('');
-}
-
-
-
-
-
-// Override cerrarProceso to save to Supabase
-var _origCerrarProceso = typeof cerrarProceso !== 'undefined' ? cerrarProceso : null;
-
-
-// Patch cerrarProceso to use Supabase version
-
-
 
 
 // ══════════════════════════════════════════
@@ -2573,34 +2526,9 @@ var alumnoActivo = null;
 var activeTab = 'registros';
 
 
-
-
-
-
-
-
-
-
-// ── DROP ZONE
-
-
-// ══════════════════════════════════════════
-// IMPORT
-// ══════════════════════════════════════════
-
-
-
-
-
-
-
-
 // ══════════════════════════════════════════
 // SIDEBAR
 // ══════════════════════════════════════════
-
-
-
 
 
 // ══════════════════════════════════════════
@@ -2719,8 +2647,6 @@ var CRITERIOS_EVALUACION={
 // ── TAB REGISTROS
 
 
-
-
 // ══════════════════════════════════════════
 // TAB EVALUACIÓN
 // ══════════════════════════════════════════
@@ -2729,13 +2655,9 @@ var CRITERIOS_EVALUACION={
 // ── Guardar evaluación provisional
 
 
-
-
 // ══════════════════════════════════════════
 // TAB RESUMEN NOTAS
 // ══════════════════════════════════════════
-
-
 
 
 // ══════════════════════════════════════════
@@ -2759,8 +2681,6 @@ function closeLightbox(){ document.getElementById('lightbox').classList.remove('
 // ══════════════════════════════════════════
 
 
-
-
 // ══════════════════════════════════════════
 // INFORME PDF POR ALUMNO
 // ══════════════════════════════════════════
@@ -2775,25 +2695,15 @@ function closeLightbox(){ document.getElementById('lightbox').classList.remove('
 // ══════════════════════════════════════════════════════════
 
 
-
-
-
-
-
 // ══════════════════════════════════════════
 // EVALUACIÓN por proceso (coincide con el esquema real de Supabase:
 // un cierre = un alumno + un proceso, con todos sus CE evaluados)
 // ══════════════════════════════════════════
 
 
-
-
-
-
 // ══════════════════════════════════════════
 // RESUMEN DE NOTAS por proceso
 // ══════════════════════════════════════════
-
 
 
 // ══════════════════════════════════════════════════════════
@@ -3016,8 +2926,6 @@ async function cerrarProceso(alumnoKey, vid, fase){
     console.error('cerrarProceso error:', e);
   }
 }
-
-
 
 
 function renderRegistrosTab(key, regs, vehiculos){
@@ -3691,7 +3599,6 @@ async function recargarAlumnos(){
   document.getElementById('sidebarAlumnos').innerHTML='<div style="padding:14px;text-align:center;color:var(--text-dim)">🔄 Cargando...</div>';
   await initProfesor();
 }
-
 
 
 function renderPanelGestion(){
