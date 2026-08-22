@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="TallerLog">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@300;400;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 
 :root{
@@ -4790,7 +4791,11 @@ async function renderEpisTab(alumnoId){
   '</div>';
 
   // Historial de incidencias
-  html += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:17px;color:var(--accent);margin-bottom:12px">📋 Historial ('+incidencias.length+')</div>';
+  var btnPDF='<button onclick="exportarEpisPDF(\''+alumnoId+'\')" style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:13px;cursor:pointer">📄 Exportar PDF</button>';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-weight:800;font-size:17px;color:var(--accent)">📋 Historial ('+incidencias.length+')</div>'+
+    btnPDF+
+  '</div>';
 
   if(incidencias.length===0){
     html += '<div style="text-align:center;padding:32px;color:var(--text-dim);font-size:14px">Sin incidencias registradas 👍</div>';
@@ -4819,21 +4824,124 @@ async function renderEpisTab(alumnoId){
   initEpiHoras();
 }
 
-async function exportarEpisCSV(alumnoId){
+async function exportarEpisPDF(alumnoId){
   try{
-    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id',alumnoId).order('fecha',{ascending:false});
+    var dataA = alumnosCache[alumnoId];
+    var nombreAlumno = dataA?(((dataA.alumno.nombre||'')+' '+(dataA.alumno.apellidos||'')).trim()):alumnoId;
+    var grupoAlumno  = dataA?(dataA.alumno.grupo||'—'):'—';
+    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id',alumnoId).order('fecha',{ascending:true});
     if(res.error) throw res.error;
     var rows = res.data||[];
-    var csv = '"Fecha","Categoría","Incidencia","Horas","Notas"\n';
-    rows.forEach(function(r){
-      csv += ['"'+(r.fecha||'')+'\"','"'+(r.categoria_nombre||r.categoria||'')+'\"','"'+(r.subcategoria||'')+'\"','"'+((r.horas||[]).join(', '))+'\"','"'+(r.notas||'')+'\"'].join(',')+'\n';
-    });
-    var blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'EPIs_'+alumnoId+'_'+new Date().toISOString().split('T')[0]+'.csv';
-    a.click();
-  }catch(e){ toast('❌ Error exportando: '+(e.message||e)); }
+    var {jsPDF} = window.jspdf;
+    var doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    var W=210,H=297,margin=14,y=0;
+    var AZUL=[21,101,192],AZUL_L=[227,242,253],ROJO=[198,40,40],GRIS=[245,245,245],GRIS_B=[200,200,200],NEGRO=[13,33,55],BLANCO=[255,255,255];
+    // CABECERA
+    doc.setFillColor(...AZUL); doc.rect(0,0,W,38,'F');
+    doc.setTextColor(...BLANCO); doc.setFont('helvetica','bold'); doc.setFontSize(18);
+    doc.text('REGISTRO DE INCIDENCIAS DE SEGURIDAD',W/2,12,{align:'center'});
+    doc.setFontSize(10); doc.setFont('helvetica','normal');
+    doc.text('IES Gregorio Prieto \u00b7 Carroceria \u00b7 TallerLog',W/2,19,{align:'center'});
+    doc.setFillColor(...AZUL_L); doc.roundedRect(margin,23,W-margin*2,13,2,2,'F');
+    doc.setTextColor(...AZUL); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('Alumno/a: '+nombreAlumno, margin+4,30);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text('Grupo: '+grupoAlumno+'     Emitido: '+new Date().toLocaleDateString('es-ES'), margin+4,35.5);
+    y=46;
+    // RESUMEN
+    var total=rows.length;
+    var contadores={};
+    rows.forEach(function(r){contadores[r.categoria]=(contadores[r.categoria]||0)+1;});
+    var colorE=total===0?[27,138,74]:total<3?[230,81,0]:[198,40,40];
+    var textoE=total===0?'SIN INCIDENCIAS':total<3?'ATENCION - Revisar conducta':'RIESGO PERDIDA FORMACION DUAL';
+    doc.setFillColor(...colorE); doc.roundedRect(margin,y,W-margin*2,13,2,2,'F');
+    doc.setTextColor(...BLANCO); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text(total+' incidencias   \u2014   '+textoE, W/2, y+8.5,{align:'center'});
+    y+=19;
+    if(Object.keys(contadores).length>0){
+      doc.setFillColor(...GRIS); doc.rect(margin,y,W-margin*2,8,'F');
+      doc.setDrawColor(...GRIS_B); doc.rect(margin,y,W-margin*2,8,'S');
+      doc.setTextColor(...NEGRO); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+      var resT=Object.keys(contadores).map(function(k){
+        var n=k==='epi'?'EPI':k==='orden'?'Orden':k==='herramientas'?'Herram.':k==='producto'?'Producto':k==='electrico'?'Electrico':'Conducta';
+        return n+': '+contadores[k];
+      }).join('   |   ');
+      doc.text(resT,W/2,y+5.5,{align:'center'});
+      y+=13;
+    }
+    // TABLA
+    var colW=[16,24,62,34,W-margin*2-16-24-62-34];
+    var colX=[margin];
+    for(var ci=0;ci<colW.length-1;ci++) colX.push(colX[ci]+colW[ci]);
+    var HEADS=['N','Fecha','Incidencia','Categoria','Horas / Notas'];
+    function cabeceraTabla(){
+      doc.setFillColor(...AZUL); doc.rect(margin,y,W-margin*2,8,'F');
+      doc.setTextColor(...BLANCO); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      HEADS.forEach(function(h,ci){ doc.text(h,colX[ci]+2,y+5.5); });
+      y+=8;
+    }
+    if(rows.length===0){
+      doc.setFillColor(...GRIS); doc.rect(margin,y,W-margin*2,18,'F');
+      doc.setTextColor(150,150,150); doc.setFont('helvetica','italic'); doc.setFontSize(10);
+      doc.text('Sin incidencias registradas.',W/2,y+11,{align:'center'}); y+=24;
+    } else {
+      cabeceraTabla();
+      rows.forEach(function(r,idx){
+        var horasStr=(r.horas&&r.horas.length)?r.horas.join(', '):'—';
+        var notasStr=r.notas?('Nota: '+r.notas):'';
+        var cel5=horasStr+(notasStr?'\n'+notasStr:'');
+        var lin5=doc.splitTextToSize(cel5,colW[4]-4);
+        var lin3=doc.splitTextToSize(r.subcategoria||'—',colW[2]-4);
+        var maxL=Math.max(lin5.length,lin3.length,1);
+        var rowH=Math.max(maxL*4.5+4,10);
+        if(y+rowH>H-22){ doc.addPage(); y=14; cabeceraTabla(); }
+        var bgF=r.categoria==='epi'?[255,248,248]:idx%2===0?BLANCO:GRIS;
+        doc.setFillColor(...bgF); doc.rect(margin,y,W-margin*2,rowH,'F');
+        doc.setDrawColor(...GRIS_B); doc.rect(margin,y,W-margin*2,rowH,'S');
+        var xL=margin;
+        colW.forEach(function(cw,ci){ if(ci>0){doc.line(xL,y,xL,y+rowH);} xL+=cw; });
+        doc.setTextColor(...NEGRO);
+        doc.setFont('helvetica','bold'); doc.setFontSize(8);
+        doc.text(String(idx+1),colX[0]+colW[0]/2,y+rowH/2+1.5,{align:'center'});
+        doc.setFont('helvetica','normal');
+        var fStr=r.fecha?new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES'):'—';
+        doc.text(fStr,colX[1]+2,y+rowH/2+1.5);
+        doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        doc.text(lin3,colX[2]+2,y+5);
+        doc.setFont('helvetica','normal'); doc.setFontSize(7);
+        var catC=r.categoria==='epi'?'EPI':r.categoria==='orden'?'Orden':r.categoria==='herramientas'?'Herram.':r.categoria==='producto'?'Producto':r.categoria==='electrico'?'Electrico':'Conducta';
+        doc.text(catC,colX[3]+2,y+rowH/2+1.5);
+        doc.setFontSize(7); doc.text(lin5,colX[4]+2,y+5);
+        y+=rowH;
+      });
+    }
+    y+=10;
+    // CUADRO LEGAL
+    if(y>H-52){doc.addPage();y=14;}
+    doc.setFillColor(255,243,224); doc.setDrawColor(230,81,0);
+    doc.roundedRect(margin,y,W-margin*2,30,2,2,'FD');
+    doc.setTextColor(183,58,0); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+    doc.text('INFORMACION SOBRE LA FORMACION DUAL',margin+4,y+7);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...NEGRO);
+    var tLegal='El incumplimiento reiterado de las normas de seguridad puede suponer la perdida del derecho a realizar la\nFormacion en Centro de Trabajo (Dual), conforme al curriculo de Carroceria de Castilla-La Mancha.\nTres o mas incidencias de la misma tipologia, o conductas que pongan en riesgo la seguridad propia o ajena,\npodran ser consideradas causa de exclusion del programa Dual previo apercibimiento documentado.';
+    doc.text(tLegal,margin+4,y+13,{lineHeightFactor:1.5});
+    y+=36;
+    // FIRMA
+    if(y>H-40){doc.addPage();y=14;}
+    y=Math.max(y,H-50);
+    doc.setDrawColor(...GRIS_B);
+    doc.line(margin,y,margin+65,y); doc.line(W-margin-65,y,W-margin,y);
+    doc.setTextColor(120,120,120); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    doc.text('Firma del profesor/a',margin+32,y+5,{align:'center'});
+    doc.text('Firma del alumno/a (enterado/a)',W-margin-32,y+5,{align:'center'});
+    doc.text('IES Gregorio Prieto - Valdepeñas',W/2,H-6,{align:'center'});
+    var filename='Incidencias_EPI_'+nombreAlumno.replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
+    doc.save(filename);
+    toast('Informe PDF generado correctamente');
+  }catch(e){
+    toast('Error generando PDF: '+(e.message||e));
+    console.error('exportarEpisPDF:',e);
+  }
 }
 
 
