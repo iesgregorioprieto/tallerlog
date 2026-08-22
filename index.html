@@ -372,6 +372,30 @@ textarea.finput{resize:vertical;min-height:80px;}
   .epi-grid{grid-template-columns:repeat(3,1fr);}
 }
 
+/* ── EPIs MÓDULO */
+.epi-badge-danger{display:inline-flex;align-items:center;gap:4px;background:var(--danger-bg);border:1px solid var(--danger);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;color:var(--danger);}
+.epi-badge-warn{display:inline-flex;align-items:center;gap:4px;background:var(--warning-bg);border:1px solid var(--warning);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;color:var(--warning);}
+.epi-badge-ok{display:inline-flex;align-items:center;gap:4px;background:var(--success-bg);border:1px solid var(--success-border);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;color:var(--success);}
+.epi-incidencia-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+.epi-incidencia-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.epi-incidencia-body{padding:10px 14px;font-size:13px;color:var(--text-dim);}
+.epi-form-card{background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+.epi-form-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:var(--accent);margin-bottom:16px;}
+.epi-field{margin-bottom:14px;}
+.epi-field label{display:block;font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
+.epi-field select,.epi-field input,.epi-field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'Nunito Sans',sans-serif;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;}
+.epi-field select:focus,.epi-field input:focus,.epi-field textarea:focus{border-color:var(--accent);}
+.epi-horas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.epi-hora-btn{padding:8px 4px;border:2px solid var(--border);border-radius:6px;background:var(--surface2);font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:var(--text-dim);cursor:pointer;text-align:center;transition:all .15s;}
+.epi-hora-btn.sel{background:var(--accent);border-color:var(--accent);color:#fff;}
+.epi-btn-registrar{width:100%;padding:13px;background:var(--danger);color:#fff;border:none;border-radius:var(--radius-sm);font-size:15px;font-family:'Barlow Condensed',sans-serif;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:background .15s;margin-top:4px;}
+.epi-btn-registrar:hover{background:#b71c1c;}
+.epi-resumen-alumno{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px;}
+.epi-resumen-num{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;min-width:48px;text-align:center;line-height:1;}
+.epi-resumen-info{flex:1;}
+.epi-resumen-nombre{font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:var(--text);}
+.epi-resumen-detalle{font-size:12px;color:var(--text-dim);margin-top:3px;}
+
 /* ── PROFESOR LAYOUT */
 .prof-shell{display:none;}
 .prof-shell.visible{display:flex;flex-direction:column;min-height:100vh;}
@@ -2894,6 +2918,7 @@ function renderFichaAlumno(alumnoId){
     '<button class="alumno-tab'+(activeTab==='registros'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'registros\')">📋 Registros</button>'+
     '<button class="alumno-tab'+(activeTab==='evaluacion'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'evaluacion\')">📊 Evaluación</button>'+
     '<button class="alumno-tab'+(activeTab==='resumen'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'resumen\')">📈 Calificaciones</button>'+
+    '<button class="alumno-tab'+(activeTab==='epis'?' active':'')+'" onclick="cambiarTab(\''+alumnoId+'\',\'epis\')">🦺 EPIs</button>'+
   '</div>';
 
   if(!regs.length){
@@ -2902,6 +2927,7 @@ function renderFichaAlumno(alumnoId){
     return;
   }
 
+  if(activeTab==='epis'){ renderEpisTab(alumnoId); return; }
   if(activeTab==='evaluacion') html += renderEvaluacion(alumnoId, regs, vehiculos, getCierresCombinados());
   else if(activeTab==='resumen') html += renderResumen(alumnoId, regs, getCierresCombinados(), null);
   else html += renderRegistrosTab(alumnoId, regs, vehiculos);
@@ -4578,6 +4604,238 @@ async function actualizarJornada(jornadaId){
     console.error('actualizarJornada error:', e);
   }
 }
+
+
+// ══════════════════════════════════════════
+// MÓDULO EPIs — Control de incidencias de seguridad
+// ══════════════════════════════════════════
+
+var EPI_CATEGORIAS = {
+  epi: {
+    nombre: '🦺 EPI no utilizado',
+    subcategorias: ['Sin casco/pantalla facial','Sin guantes','Sin gafas de protección','Sin mascarilla/FFP2','Sin calzado de seguridad','Sin ropa de trabajo','Sin protección auditiva','EPI en mal estado']
+  },
+  orden: {
+    nombre: '🧹 Orden y limpieza',
+    subcategorias: ['Puesto de trabajo sucio','Herramientas no recogidas','Residuos no gestionados','Obstáculos en zona de paso','Derrame no limpiado']
+  },
+  herramientas: {
+    nombre: '🔧 Uso incorrecto de herramientas',
+    subcategorias: ['Herramienta inadecuada para la tarea','Uso sin protección','Herramienta dañada en uso','Sin verificar estado previo']
+  },
+  producto: {
+    nombre: '🧪 Manejo incorrecto de productos',
+    subcategorias: ['Sin ventilación adecuada','Mezcla incorrecta','Almacenamiento incorrecto','Sin ficha de seguridad consultada']
+  },
+  electrico: {
+    nombre: '⚡ Riesgo eléctrico',
+    subcategorias: ['Cable en mal estado','Conexiones inadecuadas','Equipo sin toma de tierra','Uso en zona húmeda']
+  },
+  conducta: {
+    nombre: '⚠️ Conducta peligrosa',
+    subcategorias: ['Distracción en zona de riesgo','Horseplay / juego en taller','Ignora señalización de seguridad','Acceso a zona restringida']
+  }
+};
+
+var EPI_HORAS = ['1ª hora','2ª hora','3ª hora','4ª hora','5ª hora','6ª hora'];
+var epiHorasSel = [];
+
+function initEpiHoras(){
+  epiHorasSel = [];
+  var g = document.getElementById('epiHorasGrid');
+  if(!g) return;
+  g.innerHTML = EPI_HORAS.map(function(h,i){
+    return '<button class="epi-hora-btn" onclick="toggleEpiHora('+i+',this)">'+h+'</button>';
+  }).join('');
+}
+
+function toggleEpiHora(i, btn){
+  var idx = epiHorasSel.indexOf(i);
+  if(idx>=0){ epiHorasSel.splice(idx,1); btn.classList.remove('sel'); }
+  else { epiHorasSel.push(i); btn.classList.add('sel'); }
+}
+
+function onEpiCategoriaChange(){
+  var cat = document.getElementById('epiCategoria').value;
+  var sel = document.getElementById('epiSubcategoria');
+  sel.innerHTML = '<option value="">— Selecciona —</option>';
+  if(cat && EPI_CATEGORIAS[cat]){
+    EPI_CATEGORIAS[cat].subcategorias.forEach(function(s){
+      var o = document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o);
+    });
+  }
+}
+
+async function registrarIncidenciaEpi(alumnoId){
+  var fecha = document.getElementById('epiFecha').value;
+  var cat   = document.getElementById('epiCategoria').value;
+  var sub   = document.getElementById('epiSubcategoria').value;
+  var notas = document.getElementById('epiNotas').value.trim();
+  if(!fecha||!cat||!sub){ toast('⚠️ Rellena fecha, categoría y tipo de incidencia'); return; }
+  var horas = epiHorasSel.map(function(i){ return EPI_HORAS[i]; });
+  var btn = document.getElementById('epiBtnRegistrar');
+  btn.disabled=true; btn.textContent='⏳ Guardando...';
+  try{
+    var res = await sb.from('incidencias_epi').insert([{
+      alumno_id: alumnoId,
+      fecha: fecha,
+      categoria: cat,
+      categoria_nombre: EPI_CATEGORIAS[cat].nombre,
+      subcategoria: sub,
+      horas: horas,
+      notas: notas || null
+    }]).select();
+    if(res.error) throw res.error;
+    toast('✅ Incidencia registrada');
+    // Limpiar formulario
+    document.getElementById('epiFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('epiCategoria').value='';
+    document.getElementById('epiSubcategoria').innerHTML='<option value="">— Selecciona categoría primero —</option>';
+    document.getElementById('epiNotas').value='';
+    initEpiHoras();
+    // Recargar tab
+    cambiarTab(alumnoId,'epis');
+  }catch(e){
+    toast('❌ Error: '+(e.message||e));
+    console.error('registrarIncidenciaEpi:',e);
+  }finally{
+    btn.disabled=false; btn.textContent='⛔ REGISTRAR INCIDENCIA';
+  }
+}
+
+async function eliminarIncidenciaEpi(id, alumnoId){
+  if(!confirm('¿Eliminar esta incidencia?')) return;
+  try{
+    var res = await sb.from('incidencias_epi').delete().eq('id',id);
+    if(res.error) throw res.error;
+    toast('🗑️ Incidencia eliminada');
+    cambiarTab(alumnoId,'epis');
+  }catch(e){
+    toast('❌ Error: '+(e.message||e));
+  }
+}
+
+async function renderEpisTab(alumnoId){
+  var mc = document.getElementById('mainContent');
+  var data = alumnosCache[alumnoId];
+  if(!data) return;
+  var a = data.alumno;
+  var nombre = ((a.nombre||'')+' '+(a.apellidos||'')).trim();
+
+  // Cabecera alumno + tabs (igual que el resto de tabs)
+  var totalH = data.registros.reduce(function(s,r){ return s+(Array.isArray(r.horas)?r.horas.length:0); },0);
+  var html = '<div class="ficha-header">'+
+    '<div class="ficha-nombre">👷 '+nombre+'</div>'+
+    '<div class="ficha-meta">'+
+      '<span class="ficha-stat">🏫 <strong>'+(a.grupo||'—')+'</strong></span>'+
+      '<span class="ficha-stat">📅 <strong>'+data.registros.length+'</strong> jornadas</span>'+
+      '<span class="ficha-stat">🕐 <strong>'+totalH+'</strong> clases</span>'+
+      '<span class="ficha-stat">🚗 <strong>'+data.vehiculos.length+'</strong> vehículos</span>'+
+    '</div></div>';
+
+  html += '<div class="alumno-tabs">'+
+    '<button class="alumno-tab" onclick="cambiarTab(\''+alumnoId+'\',\'registros\')">📋 Registros</button>'+
+    '<button class="alumno-tab" onclick="cambiarTab(\''+alumnoId+'\',\'evaluacion\')">📊 Evaluación</button>'+
+    '<button class="alumno-tab" onclick="cambiarTab(\''+alumnoId+'\',\'resumen\')">📈 Calificaciones</button>'+
+    '<button class="alumno-tab active" onclick="cambiarTab(\''+alumnoId+'\',\'epis\')">🦺 EPIs</button>'+
+  '</div>';
+
+  // Cargar incidencias de Supabase
+  var incidencias = [];
+  try{
+    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id', alumnoId).order('fecha',{ascending:false});
+    if(!res.error) incidencias = res.data || [];
+  }catch(e){ console.error('renderEpisTab load:',e); }
+
+  // Resumen contadores por categoría
+  var contadores = {};
+  incidencias.forEach(function(inc){
+    contadores[inc.categoria] = (contadores[inc.categoria]||0)+1;
+  });
+  var total = incidencias.length;
+  var colorTotal = total===0?'var(--success)':total<3?'var(--warning)':'var(--danger)';
+  var textoEstado = total===0?'Sin incidencias ✅':total<3?'Atención ⚠️':'RIESGO PÉRDIDA DUAL 🚨';
+
+  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:20px;">'+
+    '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:52px;font-weight:900;color:'+colorTotal+';line-height:1">'+total+'</div>'+
+    '<div>'+
+      '<div style="font-family:\'Nunito\',sans-serif;font-weight:800;font-size:16px;color:'+colorTotal+'">'+textoEstado+'</div>'+
+      '<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Total de incidencias registradas este período</div>'+
+      (Object.keys(contadores).length>0?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'+
+        Object.keys(contadores).map(function(k){
+          return '<span style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--warning)">'+
+            (EPI_CATEGORIAS[k]?EPI_CATEGORIAS[k].nombre:k)+' ×'+contadores[k]+'</span>';
+        }).join('')+'</div>':'')+
+    '</div>'+
+  '</div>';
+
+  // Formulario nuevo registro
+  var hoy = new Date().toISOString().split('T')[0];
+  html += '<div class="epi-form-card">'+
+    '<div class="epi-form-title">➕ Nueva incidencia</div>'+
+    '<div class="epi-field"><label>Fecha</label><input type="date" id="epiFecha" value="'+hoy+'"></div>'+
+    '<div class="epi-field"><label>Categoría</label>'+
+      '<select id="epiCategoria" onchange="onEpiCategoriaChange()">'+
+        '<option value="">— Selecciona —</option>'+
+        Object.keys(EPI_CATEGORIAS).map(function(k){
+          return '<option value="'+k+'">'+EPI_CATEGORIAS[k].nombre+'</option>';
+        }).join('')+
+      '</select></div>'+
+    '<div class="epi-field"><label>Tipo de incidencia</label>'+
+      '<select id="epiSubcategoria"><option value="">— Selecciona categoría primero —</option></select></div>'+
+    '<div class="epi-field"><label>Hora(s) en que ocurrió</label><div class="epi-horas-grid" id="epiHorasGrid"></div></div>'+
+    '<div class="epi-field"><label>Notas adicionales (opcional)</label>'+
+      '<textarea id="epiNotas" rows="2" placeholder="Ej: Se le llamó la atención verbalmente. Reitera la misma falta..."></textarea></div>'+
+    '<button class="epi-btn-registrar" id="epiBtnRegistrar" onclick="registrarIncidenciaEpi(\''+alumnoId+'\')">⛔ REGISTRAR INCIDENCIA</button>'+
+  '</div>';
+
+  // Historial de incidencias
+  html += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:17px;color:var(--accent);margin-bottom:12px">📋 Historial ('+incidencias.length+')</div>';
+
+  if(incidencias.length===0){
+    html += '<div style="text-align:center;padding:32px;color:var(--text-dim);font-size:14px">Sin incidencias registradas 👍</div>';
+  } else {
+    incidencias.forEach(function(inc){
+      var horasStr = (inc.horas&&inc.horas.length)?inc.horas.join(', '):'Sin hora especificada';
+      var fechaStr = inc.fecha ? new Date(inc.fecha+'T12:00:00').toLocaleDateString('es-ES') : '—';
+      html += '<div class="epi-incidencia-card">'+
+        '<div class="epi-incidencia-header">'+
+          '<div>'+
+            '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:15px;color:var(--text)">'+inc.subcategoria+'</div>'+
+            '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">'+(inc.categoria_nombre||inc.categoria)+' · '+fechaStr+'</div>'+
+          '</div>'+
+          '<div style="display:flex;align-items:center;gap:8px">'+
+            '<span style="font-size:11px;color:var(--text-dim)">'+horasStr+'</span>'+
+            '<button onclick="eliminarIncidenciaEpi('+inc.id+',\''+alumnoId+'\')" style="background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer">✕</button>'+
+          '</div>'+
+        '</div>'+
+        (inc.notas?'<div class="epi-incidencia-body">💬 '+inc.notas+'</div>':'')+
+      '</div>';
+    });
+  }
+
+  mc.innerHTML = html;
+  // Inicializar horas tras render
+  initEpiHoras();
+}
+
+async function exportarEpisCSV(alumnoId){
+  try{
+    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id',alumnoId).order('fecha',{ascending:false});
+    if(res.error) throw res.error;
+    var rows = res.data||[];
+    var csv = '"Fecha","Categoría","Incidencia","Horas","Notas"\n';
+    rows.forEach(function(r){
+      csv += ['"'+(r.fecha||'')+'\"','"'+(r.categoria_nombre||r.categoria||'')+'\"','"'+(r.subcategoria||'')+'\"','"'+((r.horas||[]).join(', '))+'\"','"'+(r.notas||'')+'\"'].join(',')+'\n';
+    });
+    var blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'EPIs_'+alumnoId+'_'+new Date().toISOString().split('T')[0]+'.csv';
+    a.click();
+  }catch(e){ toast('❌ Error exportando: '+(e.message||e)); }
+}
+
 
 // ── PWA: registrar service worker
 if('serviceWorker' in navigator){
