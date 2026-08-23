@@ -4933,6 +4933,18 @@ function textoNotaSeg(nota, num){
 // MÓDULO EPIs — Control de incidencias de seguridad
 // ══════════════════════════════════════════
 
+
+var MODULOS_EPI = {
+  preparacion:   {nombre:'Preparación de superficies', corto:'Preparación',   ico:'🪣'},
+  embellecimiento:{nombre:'Embellecimiento de superficies', corto:'Embellecimiento', ico:'🎨'}
+};
+var epiModuloActivo = 'preparacion';
+
+function cambiarModuloEpi(alumnoId, mod){
+  epiModuloActivo = mod;
+  renderEpisTab(alumnoId);
+}
+
 var EPI_CATEGORIAS = {
   epi: {
     nombre: '🦺 EPI no utilizado',
@@ -5001,6 +5013,7 @@ async function registrarIncidenciaEpi(alumnoId){
   try{
     var res = await sb.from('incidencias_epi').insert([{
       alumno_id: alumnoId,
+      modulo: epiModuloActivo,
       fecha: fecha,
       categoria: cat,
       categoria_nombre: EPI_CATEGORIAS[cat].nombre,
@@ -5066,10 +5079,23 @@ async function renderEpisTab(alumnoId){
     '<button class="alumno-tab active" onclick="cambiarTab(\''+alumnoId+'\',\'epis\')">🦺 EPIs</button>'+
   '</div>';
 
+  // Selector de módulo
+  html += '<div style="display:flex;gap:8px;margin-bottom:16px">'+
+    Object.keys(MODULOS_EPI).map(function(m){
+      var mm = MODULOS_EPI[m];
+      var act = epiModuloActivo === m;
+      return '<button onclick="cambiarModuloEpi(\''+alumnoId+'\',\''+m+'\')" style="flex:1;padding:11px 12px;border-radius:10px;cursor:pointer;'+
+        'border:2px solid '+(act?'var(--accent)':'var(--border)')+';'+
+        'background:'+(act?'var(--accent)':'var(--surface2)')+';color:'+(act?'#fff':'var(--text-dim)')+';'+
+        'font-family:Nunito,sans-serif;font-weight:800;font-size:13px;text-align:center">'+
+        mm.ico+' '+mm.nombre+'</button>';
+    }).join('')+
+  '</div>';
+
   // Cargar incidencias de Supabase
   var incidencias = [];
   try{
-    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id', alumnoId).order('fecha',{ascending:false});
+    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id', alumnoId).eq('modulo', epiModuloActivo).order('fecha',{ascending:false});
     if(!res.error) incidencias = res.data || [];
   }catch(e){ console.error('renderEpisTab load:',e); }
 
@@ -5091,7 +5117,7 @@ async function renderEpisTab(alumnoId){
     '<div style="width:1px;align-self:stretch;background:var(--border)"></div>'+
     '<div>'+
       '<div style="font-family:\'Nunito\',sans-serif;font-weight:800;font-size:16px;color:'+colorTotal+'">'+textoEstado+'</div>'+
-      '<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Parte de 10 puntos · se descuenta 1 punto por incidencia · <strong>'+total+'</strong> registrada'+(total!==1?'s':'')+'</div>'+
+      '<div style="font-size:12px;color:var(--text-dim);margin-top:4px">'+MODULOS_EPI[epiModuloActivo].ico+' <strong>'+MODULOS_EPI[epiModuloActivo].nombre+'</strong> · parte de 10 puntos, se descuenta 1 por incidencia · <strong>'+total+'</strong> registrada'+(total!==1?'s':'')+'</div>'+
       (Object.keys(contadores).length>0?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'+
         Object.keys(contadores).map(function(k){
           return '<span style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--warning)">'+
@@ -5159,7 +5185,7 @@ async function exportarEpisPDF(alumnoId){
     var dataA = alumnosCache[alumnoId];
     var nombreAlumno = dataA?(((dataA.alumno.nombre||'')+' '+(dataA.alumno.apellidos||'')).trim()):alumnoId;
     var grupoAlumno  = dataA?(dataA.alumno.grupo||'—'):'—';
-    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id',alumnoId).order('fecha',{ascending:true});
+    var res = await sb.from('incidencias_epi').select('*').eq('alumno_id',alumnoId).eq('modulo', epiModuloActivo).order('fecha',{ascending:true});
     if(res.error) throw res.error;
     var rows = res.data||[];
     var {jsPDF} = window.jspdf;
@@ -5171,7 +5197,7 @@ async function exportarEpisPDF(alumnoId){
     doc.setTextColor(...BLANCO); doc.setFont('helvetica','bold'); doc.setFontSize(18);
     doc.text('REGISTRO DE INCIDENCIAS DE SEGURIDAD',W/2,12,{align:'center'});
     doc.setFontSize(10); doc.setFont('helvetica','normal');
-    doc.text('IES Gregorio Prieto \u00b7 Carroceria \u00b7 TallerLog',W/2,19,{align:'center'});
+    doc.text('IES Gregorio Prieto \u00b7 '+MODULOS_EPI[epiModuloActivo].nombre+' \u00b7 TallerLog',W/2,19,{align:'center'});
     doc.setFillColor(...AZUL_L); doc.roundedRect(margin,23,W-margin*2,13,2,2,'F');
     doc.setTextColor(...AZUL); doc.setFont('helvetica','bold'); doc.setFontSize(11);
     doc.text('Alumno/a: '+nombreAlumno, margin+4,30);
@@ -5273,7 +5299,7 @@ async function exportarEpisPDF(alumnoId){
     doc.text('Firma del profesor/a',margin+32,y+5,{align:'center'});
     doc.text('Firma del alumno/a (enterado/a)',W-margin-32,y+5,{align:'center'});
     doc.text('IES Gregorio Prieto - Valdepeñas',W/2,H-6,{align:'center'});
-    var filename='Incidencias_EPI_'+nombreAlumno.replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
+    var filename='Incidencias_'+MODULOS_EPI[epiModuloActivo].corto+'_'+nombreAlumno.replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
     doc.save(filename);
     toast('Informe PDF generado correctamente');
   }catch(e){
@@ -5560,7 +5586,7 @@ async function cargarIndicadores(){
     var ids = alumnosLista.map(function(a){ return a.id; });
 
     var resultados = await Promise.all([
-      sb.from('incidencias_epi').select('alumno_id').in('alumno_id', ids),
+      sb.from('incidencias_epi').select('alumno_id,modulo').in('alumno_id', ids),
       sb.from('vehiculos').select('alumno_id,id').in('alumno_id', ids),
       sb.from('jornadas').select('alumno_id,proceso,vehiculo_id').in('alumno_id', ids),
       sb.from('cierres').select('alumno_id,proceso,vehiculo_id,nota').in('alumno_id', ids)
@@ -5573,10 +5599,15 @@ async function cargarIndicadores(){
 
     var acc = {};
     alumnosLista.forEach(function(a){
-      acc[a.id] = { epis:0, vehiculos:0, jornadas:0, cerrados:0, pendientes:0 };
+      acc[a.id] = { epis:0, episPrep:0, episEmb:0, vehiculos:0, jornadas:0, cerrados:0, pendientes:0 };
     });
 
-    epis.forEach(function(r){ if(acc[r.alumno_id]) acc[r.alumno_id].epis++; });
+    epis.forEach(function(r){
+      if(!acc[r.alumno_id]) return;
+      acc[r.alumno_id].epis++;
+      if(r.modulo === 'embellecimiento') acc[r.alumno_id].episEmb++;
+      else acc[r.alumno_id].episPrep++;
+    });
     vehs.forEach(function(r){ if(acc[r.alumno_id]) acc[r.alumno_id].vehiculos++; });
 
     // Procesos distintos trabajados (por vehiculo+proceso)
@@ -5617,12 +5648,15 @@ function chipsIndicadores(alumnoId){
   if(!d) return '';
   var chips = [];
 
-  // Nota de seguridad — siempre visible
-  var nSeg = notaSeguridad(d.epis);
-  var cE = colorNotaSeg(nSeg);
-  var bE = nSeg>=8 ? 'rgba(34,197,94,.14)' : nSeg>=5 ? 'rgba(249,115,22,.15)' : 'rgba(239,68,68,.15)';
-  var tE = 'Nota de seguridad: '+nSeg+'/10 · '+d.epis+' incidencia'+(d.epis!==1?'s':'')+' registrada'+(d.epis!==1?'s':'');
-  chips.push('<span class="ind-chip" title="'+tE+'" style="background:'+bE+';color:'+cE+';border-color:'+cE+'">🦺 '+nSeg+'</span>');
+  // Notas de seguridad por módulo
+  [['episPrep','🪣','Preparación de superficies'],['episEmb','🎨','Embellecimiento de superficies']].forEach(function(m){
+    var num = d[m[0]] || 0;
+    var nSeg = notaSeguridad(num);
+    var cE = colorNotaSeg(nSeg);
+    var bE = nSeg>=8 ? 'rgba(34,197,94,.14)' : nSeg>=5 ? 'rgba(249,115,22,.15)' : 'rgba(239,68,68,.15)';
+    var tE = m[2]+' — nota '+nSeg+'/10 · '+num+' incidencia'+(num!==1?'s':'');
+    chips.push('<span class="ind-chip" title="'+tE+'" style="background:'+bE+';color:'+cE+';border-color:'+cE+'">'+m[1]+' '+nSeg+'</span>');
+  });
 
   // Vehículos trabajados
   if(d.vehiculos > 0){
@@ -5649,9 +5683,11 @@ function chipsIndicadores(alumnoId){
 function puntoRiesgo(alumnoId){
   var d = indicadoresCache[alumnoId];
   if(!d) return '';
-  var ns = notaSeguridad(d.epis);
-  if(ns < 5)           return '<span class="ind-punto" style="background:#ef4444" title="RIESGO: nota de seguridad '+ns+'/10"></span>';
-  if(ns < 8)           return '<span class="ind-punto" style="background:#f97316" title="Nota de seguridad '+ns+'/10"></span>';
+  var nsP = notaSeguridad(d.episPrep||0);
+  var nsE = notaSeguridad(d.episEmb||0);
+  var ns = Math.min(nsP, nsE);
+  if(ns < 5)           return '<span class="ind-punto" style="background:#ef4444" title="RIESGO — Preparación '+nsP+'/10 · Embellecimiento '+nsE+'/10"></span>';
+  if(ns < 8)           return '<span class="ind-punto" style="background:#f97316" title="Preparación '+nsP+'/10 · Embellecimiento '+nsE+'/10"></span>';
   if(d.pendientes >= 3)return '<span class="ind-punto" style="background:#eab308" title="Varios procesos sin evaluar"></span>';
   return '';
 }
