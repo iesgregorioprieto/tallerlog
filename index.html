@@ -373,6 +373,11 @@ textarea.finput{resize:vertical;min-height:80px;}
   .epi-grid{grid-template-columns:repeat(3,1fr);}
 }
 
+/* ── AVISO SIN GUARDAR */
+.aviso-guardar{display:none;align-items:center;gap:9px;background:#fff8e1;border:2px solid #f59e0b;border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:#92400e;line-height:1.35;}
+.aviso-guardar-ico{font-size:20px;flex-shrink:0;}
+.btn-guardar-sticky{position:sticky;bottom:0;z-index:20;padding:10px 0 4px;background:linear-gradient(to top,var(--bg) 62%,rgba(255,255,255,0));}
+
 /* ── INDICADORES SIDEBAR */
 .ind-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
 .ind-chip{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:800;padding:1px 5px;border-radius:9px;border:1px solid;font-family:'Barlow Condensed',sans-serif;letter-spacing:.2px;white-space:nowrap;}
@@ -691,7 +696,7 @@ textarea.finput{resize:vertical;min-height:80px;}
           </div>
         </div>
         <div class="nav-btns">
-          <button class="btn btn-secondary" onclick="irPaso(0)">← Volver</button>
+          <button class="btn btn-secondary" onclick="salirDelRegistro(0)">← Volver</button>
           <button class="btn btn-primary" id="btnSig1" onclick="irPaso(2)" disabled>Siguiente →</button>
         </div>
       </div>
@@ -743,6 +748,10 @@ textarea.finput{resize:vertical;min-height:80px;}
       <!-- PASO 3: CHECKLIST PROCESO -->
       <div id="paso3" style="display:none">
         <div class="step-indicator" id="stepDots3"></div>
+        <div class="aviso-guardar" id="avisoGuardar">
+          <span class="aviso-guardar-ico">⚠️</span>
+          <div>No cierres la app sin pulsar <strong>Guardar jornada</strong> al final. Si sales ahora, perderás todo lo que has rellenado.</div>
+        </div>
         <div class="card">
           <div class="card-head">
             <span class="card-head-ico" id="checklistIcon">📋</span>
@@ -799,7 +808,7 @@ textarea.finput{resize:vertical;min-height:80px;}
 
         <div class="nav-btns">
           <button class="btn btn-secondary" onclick="irPaso(2)">← Atrás</button>
-          <button class="btn btn-success btn-full" id="btnGuardar" onclick="guardarJornada()">✅ Guardar jornada</button>
+          <div class="btn-guardar-sticky"><button class="btn btn-success btn-full" id="btnGuardar" onclick="guardarJornada()">✅ Guardar jornada</button></div>
         </div>
       </div>
 
@@ -813,7 +822,7 @@ textarea.finput{resize:vertical;min-height:80px;}
           <div class="sync-status" id="syncStatus">☁️ Sincronizando...</div>
         </div>
         <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
-          <button class="btn btn-primary btn-full" onclick="irPaso(0)">📋 Volver al inicio</button>
+          <button class="btn btn-primary btn-full" onclick="salirDelRegistro(0)">📋 Volver al inicio</button>
           <button class="btn btn-secondary btn-full" onclick="irPaso(1)">➕ Registrar otra tarea</button>
         </div>
       </div>
@@ -1346,6 +1355,7 @@ async function guardarJornada(){
     var obs = document.getElementById('obsInput'); if(obs) obs.value='';
     var sb_el = document.getElementById('syncBadge');
     if(sb_el) sb_el.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)">☁️ Guardado en la nube correctamente</span>';
+    jornadaGuardada = true;
     irPaso(4);
   }catch(e){
     var msg = e.message || (e.details) || JSON.stringify(e);
@@ -1512,9 +1522,10 @@ function irPaso(n){
   document.getElementById('progressBar').style.display = (n>0 && n<4) ? 'block' : 'none';
   window.scrollTo(0,0);
 
-  if(n===1) renderPiezasRegistro();
+  if(n===1){ jornadaGuardada = false; renderPiezasRegistro(); }
   if(n===3) renderChecklist();
-  if(n===4){ updateDashboard(); renderHistorial(); renderResumenExport(); }
+  if(n===4){ jornadaGuardada = true; updateDashboard(); renderHistorial(); renderResumenExport(); }
+  if(typeof mostrarAvisoGuardar === 'function') mostrarAvisoGuardar();
 }
 
 function updateProgress(n){
@@ -5603,6 +5614,73 @@ function puntoRiesgo(alumnoId){
   if(ns < 8)           return '<span class="ind-punto" style="background:#f97316" title="Nota de seguridad '+ns+'/10"></span>';
   if(d.pendientes >= 3)return '<span class="ind-punto" style="background:#eab308" title="Varios procesos sin evaluar"></span>';
   return '';
+}
+
+
+
+// ══════════════════════════════════════════
+// AVISO DE TRABAJO SIN GUARDAR
+// ══════════════════════════════════════════
+
+var jornadaGuardada = false;
+
+function hayTrabajoSinGuardar(){
+  if(jornadaGuardada) return false;
+  if(typeof currentStep === 'undefined') return false;
+  // Solo dentro del flujo de registro (pasos 1, 2 y 3)
+  if(currentStep < 1 || currentStep > 3) return false;
+
+  // Paso 1: ha elegido vehiculo o piezas
+  if(typeof selVehiculo !== 'undefined' && selVehiculo) return true;
+  if(typeof selPiezas !== 'undefined' && Object.keys(selPiezas||{}).length) return true;
+  // Paso 2: proceso u horas
+  if(typeof selProceso !== 'undefined' && selProceso) return true;
+  if(typeof selHoras !== 'undefined' && (selHoras||[]).length) return true;
+  // Paso 3: algo marcado o escrito
+  if(typeof checkState !== 'undefined' && Object.keys(checkState||{}).some(function(k){ return checkState[k]===true; })) return true;
+  if(typeof epiState !== 'undefined' && Object.keys(epiState||{}).some(function(k){ return epiState[k]===true; })) return true;
+  if(typeof ordenState !== 'undefined' && Object.keys(ordenState||{}).some(function(k){ return ordenState[k]===true; })) return true;
+  if(typeof fotoJornada !== 'undefined' && fotoJornada) return true;
+  var obs = document.getElementById('obsInput');
+  if(obs && obs.value.trim()) return true;
+
+  return false;
+}
+
+// Aviso del navegador al cerrar pestaña o recargar
+window.addEventListener('beforeunload', function(e){
+  if(hayTrabajoSinGuardar()){
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+// Aviso propio al pulsar "Volver" o salir del flujo
+function salirDelRegistro(destino){
+  if(hayTrabajoSinGuardar()){
+    if(!confirm('⚠️ Tienes trabajo sin guardar.\n\nSi sales ahora perderás lo que has rellenado en esta jornada.\n\n¿Seguro que quieres salir?')){
+      return;
+    }
+    // Limpiar lo empezado
+    if(typeof selPiezas !== 'undefined') selPiezas = {};
+    if(typeof selProceso !== 'undefined') selProceso = null;
+    if(typeof selHoras !== 'undefined') selHoras = [];
+    if(typeof checkState !== 'undefined') checkState = {};
+    if(typeof epiState !== 'undefined') epiState = {};
+    if(typeof ordenState !== 'undefined') ordenState = {};
+    if(typeof fotoJornada !== 'undefined') fotoJornada = null;
+    var obs = document.getElementById('obsInput'); if(obs) obs.value='';
+    document.querySelectorAll('.hora-opt.selected, .proceso-opt.selected').forEach(function(el){ el.classList.remove('selected'); });
+  }
+  irPaso(destino);
+}
+
+// Recordatorio visual permanente en el paso 3
+function mostrarAvisoGuardar(){
+  var el = document.getElementById('avisoGuardar');
+  if(!el) return;
+  el.style.display = (currentStep === 3 && !jornadaGuardada) ? 'flex' : 'none';
 }
 
 
