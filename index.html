@@ -373,6 +373,41 @@ textarea.finput{resize:vertical;min-height:80px;}
   .epi-grid{grid-template-columns:repeat(3,1fr);}
 }
 
+/* ── PERFIL ALUMNO */
+.pf-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:flex-end;justify-content:center;animation:pfFade .18s ease;}
+@keyframes pfFade{from{opacity:0}to{opacity:1}}
+.pf-modal{background:var(--bg);width:100%;max-width:520px;max-height:92vh;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:pfUp .22s cubic-bezier(.2,.8,.3,1);}
+@keyframes pfUp{from{transform:translateY(40px)}to{transform:translateY(0)}}
+.pf-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;background:var(--accent);border-radius:18px 18px 0 0;flex-shrink:0;}
+.pf-head-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:18px;color:#fff;}
+.pf-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer;font-weight:700;}
+.pf-body{overflow-y:auto;padding:14px;}
+.pf-sec{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;}
+.pf-sec-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;color:var(--accent);margin-bottom:12px;letter-spacing:.3px;}
+.pf-foto-wrap{display:flex;gap:14px;align-items:center;}
+.pf-foto{width:78px;height:78px;border-radius:50%;background:var(--accent-light);border:3px solid var(--accent);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.pf-foto img{width:100%;height:100%;object-fit:cover;}
+.pf-foto span{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;color:var(--accent);}
+.pf-btn{display:block;width:100%;padding:9px 12px;border-radius:var(--radius-sm);font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;cursor:pointer;border:none;margin-bottom:6px;}
+.pf-btn-pri{background:var(--accent);color:#fff;}
+.pf-btn-sec{background:var(--surface2);color:var(--accent);border:1.5px solid var(--accent);}
+.pf-btn-del{background:var(--danger-bg);color:var(--danger);border:1.5px solid var(--danger);}
+.pf-hint{font-size:11px;color:var(--text-dim);line-height:1.4;margin-top:5px;}
+.pf-dato{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.pf-dato:last-of-type{border-bottom:none;}
+.pf-dato span{color:var(--text-dim);font-weight:600;}
+.pf-dato strong{color:var(--text);font-weight:800;}
+.pf-field{margin:10px 0;}
+.pf-field label{display:block;font-size:11px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;}
+.pf-field input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'Nunito Sans',sans-serif;color:var(--text);background:var(--surface);outline:none;}
+.pf-field input:focus{border-color:var(--accent);}
+.pf-temas{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pf-tema{display:flex;align-items:center;gap:8px;padding:9px 10px;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface2);font-size:12px;font-weight:700;color:var(--text-dim);transition:all .15s;}
+.pf-tema.sel{border-color:var(--accent);background:var(--accent-light);color:var(--accent);}
+.pf-tema-muestra{width:20px;height:20px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.6);box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.header-perfil-btn{background:rgba(255,255,255,.18);border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.alumno-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+
 /* ── AVISO SIN GUARDAR */
 .aviso-guardar{display:none;align-items:center;gap:9px;background:#fff8e1;border:2px solid #f59e0b;border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:#92400e;line-height:1.35;}
 .aviso-guardar-ico{font-size:20px;flex-shrink:0;}
@@ -637,6 +672,7 @@ textarea.finput{resize:vertical;min-height:80px;}
     <div class="header-logo">🔧 Taller<em>Log</em></div>
     <div style="display:flex;align-items:center;gap:8px">
       <div class="header-user" id="headerUser">👷 —</div>
+      <button class="header-perfil-btn" onclick="abrirPerfil()" title="Mi perfil">⚙️</button>
       <button onclick="showLogoutConfirm()" style="background:rgba(255,255,255,.18);border:none;border-radius:20px;padding:5px 12px;font-size:12px;color:#e3f2fd;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;">🚪 Salir</button>
     </div>
   </header>
@@ -1265,6 +1301,7 @@ async function startApp(){
   } else {
     document.getElementById('alumnoShell').classList.add('visible');
     document.getElementById('headerUser').innerHTML = '👷 ' + currentUser.nombre.split(' ')[0];
+    if(typeof aplicarTema === 'function') aplicarTema(currentUser.tema || 'azul');
     await initAlumno();
   }
 }
@@ -3080,7 +3117,7 @@ function renderSidebarCompleto(){
     var ini = ((a.nombre||'')[0]||'') + ((a.apellidos||'')[0]||'');
     var actv = alumnoActivo===a.id ? ' active' : '';
     return '<div class="alumno-item'+actv+'" onclick="abrirAlumno(\''+a.id+'\')" data-id="'+a.id+'">'+
-      '<div class="alumno-avatar">'+ini.toUpperCase()+'</div>'+
+      '<div class="alumno-avatar">'+(a.foto_url?'<img src="'+a.foto_url+'" alt="">':ini.toUpperCase())+'</div>'+
       '<div class="alumno-info">'+
       '<div class="alumno-nombre-wrap"><div class="alumno-nombre">'+a.nombre+' '+a.apellidos+'</div>'+puntoRiesgo(a.id)+'</div>'+
       '<div class="alumno-meta">'+(a.grupo||'')+'</div>'+
@@ -3162,8 +3199,9 @@ function renderFichaAlumno(alumnoId){
   var nombre = ((a.nombre||'')+' '+(a.apellidos||'')).trim();
   var totalH = regs.reduce(function(s,r){ return s + (Array.isArray(r.horas)?r.horas.length:0); },0);
 
+  var fotoA = a.foto_url ? '<img src="'+a.foto_url+'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);vertical-align:middle;margin-right:10px">' : '👷 ';
   var html = '<div class="ficha-header">'+
-    '<div class="ficha-nombre">👷 '+nombre+'</div>'+
+    '<div class="ficha-nombre">'+fotoA+nombre+'</div>'+
     '<div class="ficha-meta">'+
       '<span class="ficha-stat">🏫 <strong>'+(a.grupo||'—')+'</strong></span>'+
       '<span class="ficha-stat">📅 <strong>'+regs.length+'</strong> jornadas</span>'+
@@ -5010,8 +5048,9 @@ async function renderEpisTab(alumnoId){
 
   // Cabecera alumno + tabs (igual que el resto de tabs)
   var totalH = data.registros.reduce(function(s,r){ return s+(Array.isArray(r.horas)?r.horas.length:0); },0);
+  var fotoA = a.foto_url ? '<img src="'+a.foto_url+'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);vertical-align:middle;margin-right:10px">' : '👷 ';
   var html = '<div class="ficha-header">'+
-    '<div class="ficha-nombre">👷 '+nombre+'</div>'+
+    '<div class="ficha-nombre">'+fotoA+nombre+'</div>'+
     '<div class="ficha-meta">'+
       '<span class="ficha-stat">🏫 <strong>'+(a.grupo||'—')+'</strong></span>'+
       '<span class="ficha-stat">📅 <strong>'+data.registros.length+'</strong> jornadas</span>'+
@@ -5681,6 +5720,209 @@ function mostrarAvisoGuardar(){
   var el = document.getElementById('avisoGuardar');
   if(!el) return;
   el.style.display = (currentStep === 3 && !jornadaGuardada) ? 'flex' : 'none';
+}
+
+
+
+// ══════════════════════════════════════════
+// PERFIL DEL ALUMNO — Personalización
+// ══════════════════════════════════════════
+
+var TEMAS = {
+  azul:    {nombre:'Azul taller',      ico:'🔵', vars:{'--bg':'#f0f6ff','--surface':'#ffffff','--surface2':'#e8f0fe','--surface3':'#dceefb','--border':'#c5d8f6','--accent':'#1565c0','--accent-mid':'#1976d2','--accent2':'#42a5f5','--accent-light':'#e3f2fd','--text':'#0d2137','--text-dim':'#5c7a9e','--text-light':'#8aaece'}},
+  rojo:    {nombre:'Rojo carrocería',  ico:'🔴', vars:{'--bg':'#fff5f5','--surface':'#ffffff','--surface2':'#ffe9e9','--surface3':'#ffdcdc','--border':'#f5c2c2','--accent':'#c62828','--accent-mid':'#d32f2f','--accent2':'#ef5350','--accent-light':'#ffebee','--text':'#3d1414','--text-dim':'#9e5c5c','--text-light':'#ce8a8a'}},
+  verde:   {nombre:'Verde taller',     ico:'🟢', vars:{'--bg':'#f1f9f3','--surface':'#ffffff','--surface2':'#e6f4ea','--surface3':'#d8eede','--border':'#b8dcc4','--accent':'#1b7a3e','--accent-mid':'#2e9b53','--accent2':'#4caf50','--accent-light':'#e8f5e9','--text':'#0d2b18','--text-dim':'#5c8a6c','--text-light':'#8ab89a'}},
+  naranja: {nombre:'Naranja taller',   ico:'🟠', vars:{'--bg':'#fff8f0','--surface':'#ffffff','--surface2':'#ffefe0','--surface3':'#ffe5cc','--border':'#f5d0aa','--accent':'#e65100','--accent-mid':'#f57c00','--accent2':'#ff9800','--accent-light':'#fff3e0','--text':'#3d2410','--text-dim':'#9e7a5c','--text-light':'#ceae8a'}},
+  oscuro:  {nombre:'Modo oscuro',      ico:'⚫', vars:{'--bg':'#14181f','--surface':'#1c222c','--surface2':'#252d3a','--surface3':'#2e3745','--border':'#3a4553','--accent':'#4a9eff','--accent-mid':'#63aeff','--accent2':'#7cbcff','--accent-light':'#243447','--text':'#e8eef7','--text-dim':'#9db0c9','--text-light':'#6d829e'}}
+};
+
+function aplicarTema(id){
+  var t = TEMAS[id] || TEMAS.azul;
+  var root = document.documentElement;
+  Object.keys(t.vars).forEach(function(k){ root.style.setProperty(k, t.vars[k]); });
+}
+
+function abrirPerfil(){
+  var u = currentUser || {};
+  var temaActual = u.tema || 'azul';
+  var inicial = ((u.nombre||'')[0]||'') + ((u.apellidos||'')[0]||'');
+
+  var html = '<div class="pf-overlay" id="pfOverlay" onclick="if(event.target===this)cerrarPerfil()">'+
+    '<div class="pf-modal">'+
+      '<div class="pf-head">'+
+        '<div class="pf-head-title">⚙️ Mi perfil</div>'+
+        '<button class="pf-close" onclick="cerrarPerfil()">✕</button>'+
+      '</div>'+
+      '<div class="pf-body">'+
+
+        // FOTO
+        '<div class="pf-sec">'+
+          '<div class="pf-sec-title">📸 Mi foto</div>'+
+          '<div class="pf-foto-wrap">'+
+            '<div class="pf-foto" id="pfFotoPrev">'+
+              (u.foto_url ? '<img src="'+u.foto_url+'" alt="">' : '<span>'+inicial.toUpperCase()+'</span>')+
+            '</div>'+
+            '<div style="flex:1">'+
+              '<button class="pf-btn pf-btn-sec" onclick="document.getElementById(\'pfFotoInput\').click()">📷 Cambiar foto</button>'+
+              (u.foto_url ? '<button class="pf-btn pf-btn-del" onclick="borrarFotoPerfil()">🗑️ Quitar</button>' : '')+
+              '<div class="pf-hint">Tu profesor la verá en su lista de alumnos.</div>'+
+            '</div>'+
+          '</div>'+
+          '<input type="file" accept="image/*" capture="user" id="pfFotoInput" style="display:none" onchange="subirFotoPerfil(this)">'+
+        '</div>'+
+
+        // DATOS
+        '<div class="pf-sec">'+
+          '<div class="pf-sec-title">👤 Mis datos</div>'+
+          '<div class="pf-dato"><span>Nombre</span><strong>'+((u.nombre||'')+' '+(u.apellidos||'')).trim()+'</strong></div>'+
+          '<div class="pf-dato"><span>Grupo</span><strong>'+(u.grupo||'—')+'</strong></div>'+
+          '<div class="pf-field"><label>Teléfono (opcional)</label>'+
+            '<input type="tel" id="pfTelefono" value="'+(u.telefono||'')+'" placeholder="600 000 000"></div>'+
+          '<button class="pf-btn pf-btn-pri" onclick="guardarDatosPerfil()">Guardar datos</button>'+
+          '<div class="pf-hint">Si tu nombre o grupo están mal, díselo a tu profesor.</div>'+
+        '</div>'+
+
+        // TEMA
+        '<div class="pf-sec">'+
+          '<div class="pf-sec-title">🎨 Color de la app</div>'+
+          '<div class="pf-temas">'+
+            Object.keys(TEMAS).map(function(k){
+              var t=TEMAS[k];
+              return '<div class="pf-tema'+(k===temaActual?' sel':'')+'" id="tema-'+k+'" onclick="elegirTema(\''+k+'\')">'+
+                '<div class="pf-tema-muestra" style="background:'+t.vars['--accent']+'"></div>'+
+                '<span>'+t.nombre+'</span>'+
+              '</div>';
+            }).join('')+
+          '</div>'+
+        '</div>'+
+
+        // CONTRASEÑA
+        '<div class="pf-sec">'+
+          '<div class="pf-sec-title">🔒 Cambiar contraseña</div>'+
+          '<div class="pf-field"><label>Contraseña actual</label><input type="password" id="pfPassAct"></div>'+
+          '<div class="pf-field"><label>Nueva contraseña</label><input type="password" id="pfPassNue" placeholder="Mínimo 4 caracteres"></div>'+
+          '<div class="pf-field"><label>Repite la nueva</label><input type="password" id="pfPassRep"></div>'+
+          '<button class="pf-btn pf-btn-pri" onclick="cambiarPassword()">Cambiar contraseña</button>'+
+          '<div class="pf-hint">⚠️ No uses la misma contraseña que en otras aplicaciones.</div>'+
+        '</div>'+
+
+      '</div>'+
+    '</div>'+
+  '</div>';
+
+  var cont = document.createElement('div');
+  cont.id = 'pfContainer';
+  cont.innerHTML = html;
+  document.body.appendChild(cont);
+}
+
+function cerrarPerfil(){
+  var c = document.getElementById('pfContainer');
+  if(c) c.remove();
+}
+
+async function elegirTema(id){
+  aplicarTema(id);
+  document.querySelectorAll('.pf-tema').forEach(function(el){ el.classList.remove('sel'); });
+  var el = document.getElementById('tema-'+id);
+  if(el) el.classList.add('sel');
+  try{
+    var res = await sb.from('alumnos').update({tema:id}).eq('id', currentUser.id);
+    if(res.error) throw res.error;
+    currentUser.tema = id;
+    sessionStorage.setItem('tl_user', JSON.stringify(currentUser));
+    toast('🎨 Tema aplicado');
+  }catch(e){ toast('❌ No se pudo guardar el tema'); console.error(e); }
+}
+
+async function guardarDatosPerfil(){
+  var tel = document.getElementById('pfTelefono').value.trim();
+  try{
+    var res = await sb.from('alumnos').update({telefono: tel||null}).eq('id', currentUser.id);
+    if(res.error) throw res.error;
+    currentUser.telefono = tel;
+    sessionStorage.setItem('tl_user', JSON.stringify(currentUser));
+    toast('✅ Datos guardados');
+  }catch(e){ toast('❌ Error al guardar'); console.error(e); }
+}
+
+async function cambiarPassword(){
+  var act = document.getElementById('pfPassAct').value;
+  var nue = document.getElementById('pfPassNue').value;
+  var rep = document.getElementById('pfPassRep').value;
+  if(!act || !nue || !rep){ toast('⚠️ Rellena los tres campos'); return; }
+  if(act !== currentUser.password){ toast('❌ La contraseña actual no es correcta'); return; }
+  if(nue.length < 4){ toast('⚠️ La nueva debe tener al menos 4 caracteres'); return; }
+  if(nue !== rep){ toast('❌ Las dos nuevas no coinciden'); return; }
+  if(nue === act){ toast('⚠️ La nueva debe ser distinta de la actual'); return; }
+  try{
+    var res = await sb.from('alumnos').update({password: nue}).eq('id', currentUser.id);
+    if(res.error) throw res.error;
+    currentUser.password = nue;
+    sessionStorage.setItem('tl_user', JSON.stringify(currentUser));
+    document.getElementById('pfPassAct').value='';
+    document.getElementById('pfPassNue').value='';
+    document.getElementById('pfPassRep').value='';
+    toast('🔒 Contraseña cambiada. Apúntala para no olvidarla.');
+  }catch(e){ toast('❌ Error al cambiar la contraseña'); console.error(e); }
+}
+
+async function subirFotoPerfil(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){ toast('⚠️ La foto es muy grande (máx. 5MB)'); return; }
+  toast('⏳ Subiendo foto...');
+  try{
+    // Redimensionar a 400px de ancho
+    var b64 = await new Promise(function(res, rej){
+      var fr = new FileReader();
+      fr.onload = function(){ res(fr.result); };
+      fr.onerror = rej;
+      fr.readAsDataURL(file);
+    });
+    var img = await new Promise(function(res, rej){
+      var im = new Image(); im.onload=function(){res(im);}; im.onerror=rej; im.src=b64;
+    });
+    var max = 400;
+    var w = img.width, h = img.height;
+    if(w > max){ h = Math.round(h*max/w); w = max; }
+    var cv = document.createElement('canvas');
+    cv.width=w; cv.height=h;
+    cv.getContext('2d').drawImage(img,0,0,w,h);
+    var small = cv.toDataURL('image/jpeg', 0.82);
+
+    var arr=small.split(','), bstr=atob(arr[1]), n=bstr.length, u8=new Uint8Array(n);
+    while(n--){ u8[n]=bstr.charCodeAt(n); }
+    var blob=new Blob([u8],{type:'image/jpeg'});
+    var path='perfiles/'+currentUser.id+'.jpg';
+    var up = await sb.storage.from('fotos-vehiculos').upload(path, blob, {upsert:true});
+    if(up.error) throw up.error;
+    var url = sb.storage.from('fotos-vehiculos').getPublicUrl(path).data.publicUrl + '?v=' + Date.now();
+
+    var res = await sb.from('alumnos').update({foto_url:url}).eq('id', currentUser.id);
+    if(res.error) throw res.error;
+    currentUser.foto_url = url;
+    sessionStorage.setItem('tl_user', JSON.stringify(currentUser));
+    var prev = document.getElementById('pfFotoPrev');
+    if(prev) prev.innerHTML = '<img src="'+url+'" alt="">';
+    toast('✅ Foto actualizada');
+    cerrarPerfil(); abrirPerfil();
+  }catch(e){
+    toast('❌ Error al subir la foto');
+    console.error('subirFotoPerfil:', e);
+  }
+}
+
+async function borrarFotoPerfil(){
+  if(!confirm('¿Quitar tu foto de perfil?')) return;
+  try{
+    var res = await sb.from('alumnos').update({foto_url:null}).eq('id', currentUser.id);
+    if(res.error) throw res.error;
+    currentUser.foto_url = null;
+    sessionStorage.setItem('tl_user', JSON.stringify(currentUser));
+    toast('🗑️ Foto eliminada');
+    cerrarPerfil(); abrirPerfil();
+  }catch(e){ toast('❌ Error al quitar la foto'); console.error(e); }
 }
 
 
