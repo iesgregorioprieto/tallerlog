@@ -6,6 +6,8 @@
 <title>TallerLog · IES Gregorio Prieto</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon-192.svg">
+<link rel="apple-touch-icon" href="icon-192.svg">
 <meta name="theme-color" content="#1565c0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -373,6 +375,20 @@ textarea.finput{resize:vertical;min-height:80px;}
   .epi-grid{grid-template-columns:repeat(3,1fr);}
 }
 
+/* ── INSTALAR APP */
+.btn-instalar{display:none;align-items:center;gap:7px;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.5);border-radius:20px;padding:5px 13px;font-size:12px;color:#fff;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;}
+.btn-instalar:hover{background:rgba(255,255,255,.32);}
+.ins-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;}
+.ins-modal{background:var(--surface);border-radius:16px;max-width:430px;width:100%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+.ins-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;background:var(--accent);}
+.ins-head-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:17px;color:#fff;}
+.ins-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;font-weight:700;}
+.ins-body{padding:18px;}
+.ins-intro{font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:16px;}
+.ins-paso{background:var(--surface2);border-left:3px solid var(--accent);border-radius:6px;padding:11px 13px;margin-bottom:9px;font-size:13.5px;line-height:1.5;color:var(--text);}
+.ins-paso b{color:var(--accent);}
+.ins-nota{background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:6px;padding:10px 12px;font-size:12.5px;color:var(--warning);line-height:1.45;margin-top:12px;}
+
 /* ── PERFIL ALUMNO */
 .pf-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:flex-end;justify-content:center;animation:pfFade .18s ease;}
 @keyframes pfFade{from{opacity:0}to{opacity:1}}
@@ -672,6 +688,7 @@ textarea.finput{resize:vertical;min-height:80px;}
     <div class="header-logo">🔧 Taller<em>Log</em></div>
     <div style="display:flex;align-items:center;gap:8px">
       <div class="header-user" id="headerUser">👷 —</div>
+      <button class="btn-instalar" id="btnInstalar" onclick="instalarApp()" title="Instalar la app">📲 Instalar</button>
       <button class="header-perfil-btn" onclick="abrirPerfil()" title="Mi perfil">⚙️</button>
       <button onclick="showLogoutConfirm()" style="background:rgba(255,255,255,.18);border:none;border-radius:20px;padding:5px 12px;font-size:12px;color:#e3f2fd;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;">🚪 Salir</button>
     </div>
@@ -1155,6 +1172,7 @@ textarea.finput{resize:vertical;min-height:80px;}
       <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
         <button onclick="abrirVistaGrupo()" style="width:100%;background:var(--surface2);border:2px solid var(--accent);color:var(--accent);border-radius:var(--radius-sm);padding:10px 8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer">📊 Notas por criterio</button>
         <button onclick="abrirGestionProfes()" style="width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);padding:8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer">👨‍🏫 Gestión de profesores</button>
+        <button id="btnInstalarProf" onclick="instalarApp()" style="display:none;width:100%;margin-top:6px;background:var(--accent-light);border:1px solid var(--accent);color:var(--accent);border-radius:var(--radius-sm);padding:8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer">📲 Instalar la app</button>
       </div>
       <div class="sidebar-section">👷 Alumnos del taller</div>
       <div id="sidebarAlumnos"><div class="sidebar-empty">Cargando alumnos...</div></div>
@@ -6132,6 +6150,117 @@ async function borrarProfesor(id, nombre){
     cargarListaProfes();
   }catch(e){ toast('❌ Error: '+(e.message||e)); }
 }
+
+
+
+// ══════════════════════════════════════════
+// INSTALACIÓN DE LA APP (PWA)
+// ══════════════════════════════════════════
+
+var deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  deferredPrompt = e;
+  mostrarBotonInstalar();
+});
+
+window.addEventListener('appinstalled', function(){
+  deferredPrompt = null;
+  ocultarBotonInstalar();
+  try{ localStorage.setItem('tl_instalada','1'); }catch(err){}
+  toast('✅ TallerLog instalada correctamente');
+});
+
+function appYaInstalada(){
+  if(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+  if(window.navigator.standalone === true) return true;
+  return false;
+}
+
+function mostrarBotonInstalar(){
+  if(appYaInstalada()) return;
+  var b = document.getElementById('btnInstalar');
+  if(b) b.style.display = 'flex';
+  var b2 = document.getElementById('btnInstalarProf');
+  if(b2) b2.style.display = 'block';
+}
+
+function ocultarBotonInstalar(){
+  var b = document.getElementById('btnInstalar');
+  if(b) b.style.display = 'none';
+  var b2 = document.getElementById('btnInstalarProf');
+  if(b2) b2.style.display = 'none';
+}
+
+async function instalarApp(){
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    var r = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if(r.outcome === 'accepted'){ ocultarBotonInstalar(); }
+    return;
+  }
+  // Sin prompt nativo: mostrar instrucciones manuales
+  mostrarInstruccionesInstalar();
+}
+
+function mostrarInstruccionesInstalar(){
+  var ua = navigator.userAgent || '';
+  var esIOS = /iPad|iPhone|iPod/.test(ua);
+  var esAndroid = /Android/.test(ua);
+  var esMac = /Macintosh/.test(ua) && !esIOS;
+
+  var pasos;
+  if(esIOS){
+    pasos = '<div class="ins-paso"><b>1.</b> Pulsa el botón <b>Compartir</b> <span style="font-size:17px">􀈂</span> en la barra de abajo de Safari.</div>'+
+            '<div class="ins-paso"><b>2.</b> Baja y elige <b>«Añadir a pantalla de inicio»</b>.</div>'+
+            '<div class="ins-paso"><b>3.</b> Pulsa <b>Añadir</b> arriba a la derecha.</div>'+
+            '<div class="ins-nota">⚠️ En iPhone y iPad solo funciona desde <b>Safari</b>, no desde Chrome.</div>';
+  } else if(esAndroid){
+    pasos = '<div class="ins-paso"><b>1.</b> Pulsa el menú <b>⋮</b> arriba a la derecha de Chrome.</div>'+
+            '<div class="ins-paso"><b>2.</b> Elige <b>«Instalar aplicación»</b> o <b>«Añadir a pantalla de inicio»</b>.</div>'+
+            '<div class="ins-paso"><b>3.</b> Confirma pulsando <b>Instalar</b>.</div>';
+  } else if(esMac){
+    pasos = '<div class="ins-paso"><b>1.</b> En <b>Chrome</b> o <b>Edge</b>, busca el icono <b>⊕</b> a la derecha de la barra de direcciones.</div>'+
+            '<div class="ins-paso"><b>2.</b> Pulsa <b>Instalar</b>.</div>'+
+            '<div class="ins-nota">En <b>Safari</b>: menú <b>Archivo → Añadir al Dock</b>.</div>';
+  } else {
+    pasos = '<div class="ins-paso"><b>1.</b> En <b>Chrome</b> o <b>Edge</b>, busca el icono <b>⊕</b> (o un monitor con flecha) a la derecha de la barra de direcciones.</div>'+
+            '<div class="ins-paso"><b>2.</b> Pulsa <b>Instalar</b>.</div>'+
+            '<div class="ins-nota">Si no aparece: menú <b>⋮</b> → <b>Guardar y compartir</b> → <b>Instalar página como aplicación</b>.</div>';
+  }
+
+  var html = '<div class="ins-overlay" id="insOverlay" onclick="if(event.target===this)cerrarInstrucciones()">'+
+    '<div class="ins-modal">'+
+      '<div class="ins-head">'+
+        '<div class="ins-head-title">📲 Instalar TallerLog</div>'+
+        '<button class="ins-close" onclick="cerrarInstrucciones()">✕</button>'+
+      '</div>'+
+      '<div class="ins-body">'+
+        '<div class="ins-intro">Instálala para abrirla como una app normal, con su icono, sin barra del navegador y con acceso más rápido.</div>'+
+        pasos+
+      '</div>'+
+    '</div>'+
+  '</div>';
+
+  var c = document.createElement('div');
+  c.id = 'insContainer';
+  c.innerHTML = html;
+  document.body.appendChild(c);
+}
+
+function cerrarInstrucciones(){
+  var c = document.getElementById('insContainer');
+  if(c) c.remove();
+}
+
+// Al cargar: si no hay prompt nativo pero tampoco está instalada, ofrecer el botón igualmente
+document.addEventListener('DOMContentLoaded', function(){
+  setTimeout(function(){
+    if(!appYaInstalada() && !deferredPrompt) mostrarBotonInstalar();
+  }, 2500);
+});
 
 
 // ── PWA: registrar service worker
