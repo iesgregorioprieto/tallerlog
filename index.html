@@ -1154,6 +1154,7 @@ textarea.finput{resize:vertical;min-height:80px;}
       </div>
       <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
         <button onclick="abrirVistaGrupo()" style="width:100%;background:var(--surface2);border:2px solid var(--accent);color:var(--accent);border-radius:var(--radius-sm);padding:10px 8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer">📊 Notas por criterio</button>
+        <button onclick="abrirGestionProfes()" style="width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);padding:8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer">👨‍🏫 Gestión de profesores</button>
       </div>
       <div class="sidebar-section">👷 Alumnos del taller</div>
       <div id="sidebarAlumnos"><div class="sidebar-empty">Cargando alumnos...</div></div>
@@ -5923,6 +5924,177 @@ async function borrarFotoPerfil(){
     toast('🗑️ Foto eliminada');
     cerrarPerfil(); abrirPerfil();
   }catch(e){ toast('❌ Error al quitar la foto'); console.error(e); }
+}
+
+
+
+// ══════════════════════════════════════════
+// GESTIÓN DE PROFESORES
+// ══════════════════════════════════════════
+
+function abrirGestionProfes(){
+  var mainDiv = document.getElementById('mainContent');
+  mainDiv.innerHTML = renderPanelProfes();
+  cargarListaProfes();
+}
+
+function renderPanelProfes(){
+  return '<div style="max-width:600px">'+
+    '<div style="font-family:\'Nunito\',sans-serif;font-weight:900;font-size:22px;color:var(--accent);margin-bottom:20px">👨‍🏫 Gestión de profesores</div>'+
+
+    '<div class="card" style="margin-bottom:16px">'+
+      '<div class="card-head"><span class="card-head-ico">➕</span><div>'+
+        '<div class="card-head-title">Dar de alta un profesor</div>'+
+        '<div class="card-head-sub">Tendrá acceso completo: ver y evaluar a todos los alumnos</div>'+
+      '</div></div>'+
+      '<div class="card-body" style="display:flex;flex-direction:column;gap:10px">'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+          '<div><label class="flabel">Nombre</label><input class="finput" id="gp_nombre" placeholder="Nombre"></div>'+
+          '<div><label class="flabel">Apellidos</label><input class="finput" id="gp_apellidos" placeholder="Apellidos"></div>'+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+          '<div><label class="flabel">Contraseña</label>'+
+            '<div style="display:flex;gap:6px">'+
+              '<input class="finput" id="gp_password" placeholder="Contraseña">'+
+              '<button onclick="generarPasswordProfe()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 12px;cursor:pointer;font-size:14px" title="Generar contraseña">🎲</button>'+
+            '</div>'+
+          '</div>'+
+          '<div style="display:flex;align-items:flex-end">'+
+            '<button onclick="darDeAltaProfesor()" class="btn btn-success btn-full">✅ Dar de alta</button>'+
+          '</div>'+
+        '</div>'+
+        '<div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--warning);line-height:1.45">'+
+          '⚠️ El nombre debe ser <strong>distinto</strong> al de los demás profesores, porque el acceso se hace por nombre. Si coincide, añade el apellido en el campo Nombre.'+
+        '</div>'+
+        '<div id="gp_resultado"></div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="card">'+
+      '<div class="card-head"><span class="card-head-ico">👨‍🏫</span><div>'+
+        '<div class="card-head-title">Profesores registrados</div>'+
+        '<div class="card-head-sub">Contraseñas y accesos</div>'+
+      '</div></div>'+
+      '<div id="gp_lista" style="padding:8px 0">'+
+        '<div style="padding:14px;text-align:center;color:var(--text-dim)">⏳ Cargando...</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+function generarPasswordProfe(){
+  var pal = ['taller','chapa','pintura','carro','masilla','pistola','lija','cabina'];
+  var p = pal[Math.floor(Math.random()*pal.length)] + Math.floor(1000+Math.random()*9000);
+  document.getElementById('gp_password').value = p;
+}
+
+async function cargarListaProfes(){
+  var wrap = document.getElementById('gp_lista');
+  if(!wrap) return;
+  try{
+    var res = await sb.from('alumnos').select('*').eq('rol','profesor').order('apellidos');
+    if(res.error) throw res.error;
+    var lista = res.data||[];
+    if(!lista.length){
+      wrap.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-dim)">No hay profesores registrados.</div>';
+      return;
+    }
+    wrap.innerHTML = lista.map(function(p){
+      var soyYo = currentUser && p.id === currentUser.id;
+      var ini = ((p.nombre||'')[0]||'').toUpperCase()+((p.apellidos||'')[0]||'').toUpperCase();
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)'+(soyYo?';background:var(--accent-light)':'')+'">'+
+        '<div style="width:36px;height:36px;border-radius:50%;background:var(--accent-light);border:2px solid var(--accent2);display:flex;align-items:center;justify-content:center;font-family:\'Nunito\',sans-serif;font-weight:900;font-size:13px;color:var(--accent);flex-shrink:0;overflow:hidden">'+
+          (p.foto_url?'<img src="'+p.foto_url+'" style="width:100%;height:100%;object-fit:cover">':ini)+
+        '</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-family:\'Nunito\',sans-serif;font-weight:800;font-size:13px">'+p.nombre+' '+(p.apellidos||'')+
+            (soyYo?' <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:8px;padding:1px 7px;font-weight:700">TÚ</span>':'')+'</div>'+
+          '<div style="font-size:11px;color:var(--text-dim)">Profesor'+(p.telefono?' · '+p.telefono:'')+'</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+
+          '<span style="font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-family:monospace">'+p.password+'</span>'+
+          '<button onclick="resetPasswordProfe(\''+p.id+'\',\''+String(p.nombre).replace(/'/g,"")+'\')" style="padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:11px;font-weight:700;cursor:pointer" title="Cambiar contraseña">🔑</button>'+
+          (soyYo ? '' :
+            '<button onclick="toggleActivoProfe(\''+p.id+'\','+p.activo+')" style="padding:4px 10px;border-radius:6px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;'+
+            (p.activo?'background:var(--success-bg);border-color:var(--success);color:var(--success)':'background:var(--danger-bg);border-color:var(--danger);color:var(--danger)')+'">'+(p.activo?'✅ Activo':'❌ Inactivo')+'</button>'+
+            '<button onclick="borrarProfesor(\''+p.id+'\',\''+String(p.nombre).replace(/'/g,"")+' '+String(p.apellidos||'').replace(/'/g,"")+'\')" style="padding:4px 9px;border-radius:6px;border:1px solid var(--danger);background:var(--danger-bg);color:var(--danger);font-size:11px;font-weight:700;cursor:pointer" title="Eliminar">🗑️</button>')+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }catch(e){
+    wrap.innerHTML='<div style="padding:14px;color:var(--danger)">❌ Error: '+e.message+'</div>';
+  }
+}
+
+async function darDeAltaProfesor(){
+  var nombre = (document.getElementById('gp_nombre').value||'').trim();
+  var apellidos = (document.getElementById('gp_apellidos').value||'').trim();
+  var password = (document.getElementById('gp_password').value||'').trim();
+  var rd = document.getElementById('gp_resultado');
+
+  if(!nombre || !password){
+    rd.innerHTML='<div style="color:var(--danger);font-size:13px;font-weight:700">⚠️ El nombre y la contraseña son obligatorios.</div>';
+    return;
+  }
+  rd.innerHTML='<div style="color:var(--text-dim);font-size:13px">⏳ Comprobando...</div>';
+  try{
+    // Comprobar que el nombre no está ya en uso
+    var dup = await sb.from('alumnos').select('id,nombre,rol').ilike('nombre', nombre);
+    if(dup.error) throw dup.error;
+    if(dup.data && dup.data.length){
+      rd.innerHTML='<div style="background:var(--danger-bg);border:1px solid var(--danger);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--danger);font-weight:700">'+
+        '❌ Ya existe un usuario con el nombre <strong>'+nombre+'</strong>. Usa nombre y apellido juntos, por ejemplo "'+nombre+' '+(apellidos.split(' ')[0]||'')+'".</div>';
+      return;
+    }
+    var res = await sb.from('alumnos').insert([{
+      nombre: nombre, apellidos: apellidos, grupo: 'Profesor',
+      password: password, rol: 'profesor', activo: true
+    }]).select();
+    if(res.error) throw res.error;
+
+    rd.innerHTML='<div style="background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;font-weight:700;color:var(--success)">'+
+      '✅ Profesor <strong>'+nombre+' '+apellidos+'</strong> dado de alta.<br>'+
+      '<span style="font-weight:400">Entra eligiendo "Soy profesor", con el nombre <strong>'+nombre+'</strong> y la contraseña <strong>'+password+'</strong>.</span></div>';
+    document.getElementById('gp_nombre').value='';
+    document.getElementById('gp_apellidos').value='';
+    document.getElementById('gp_password').value='';
+    cargarListaProfes();
+  }catch(e){
+    rd.innerHTML='<div style="color:var(--danger);font-size:13px;font-weight:700">❌ Error: '+(e.message||e)+'</div>';
+    console.error('darDeAltaProfesor:', e);
+  }
+}
+
+async function toggleActivoProfe(id, activo){
+  try{
+    var res = await sb.from('alumnos').update({activo: !activo}).eq('id', id);
+    if(res.error) throw res.error;
+    toast(activo?'⛔ Profesor desactivado':'✅ Profesor activado');
+    cargarListaProfes();
+  }catch(e){ toast('❌ Error: '+(e.message||e)); }
+}
+
+async function resetPasswordProfe(id, nombre){
+  var nueva = prompt('Nueva contraseña para '+nombre+':');
+  if(nueva===null) return;
+  nueva = nueva.trim();
+  if(nueva.length < 4){ toast('⚠️ Mínimo 4 caracteres'); return; }
+  try{
+    var res = await sb.from('alumnos').update({password: nueva}).eq('id', id);
+    if(res.error) throw res.error;
+    toast('🔑 Contraseña cambiada');
+    cargarListaProfes();
+  }catch(e){ toast('❌ Error: '+(e.message||e)); }
+}
+
+async function borrarProfesor(id, nombre){
+  if(!confirm('¿Eliminar al profesor '+nombre+'?\n\nPerderá el acceso a la aplicación. Esta acción no se puede deshacer.\n\nSi solo quieres quitarle el acceso temporalmente, usa el botón Activo/Inactivo.')) return;
+  try{
+    var res = await sb.from('alumnos').delete().eq('id', id);
+    if(res.error) throw res.error;
+    toast('🗑️ Profesor eliminado');
+    cargarListaProfes();
+  }catch(e){ toast('❌ Error: '+(e.message||e)); }
 }
 
 
