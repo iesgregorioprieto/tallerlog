@@ -373,6 +373,19 @@ textarea.finput{resize:vertical;min-height:80px;}
   .epi-grid{grid-template-columns:repeat(3,1fr);}
 }
 
+/* ── RÚBRICAS */
+.rub-toggle{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-dim);font-size:9px;font-weight:700;padding:1px 6px;cursor:pointer;margin-left:6px;font-family:'Barlow Condensed',sans-serif;transition:all .15s;vertical-align:middle;}
+.rub-toggle:hover{border-color:var(--accent);color:var(--accent);}
+.rub-toggle.open{background:var(--accent);border-color:var(--accent);color:#fff;}
+.rub-panel{display:none;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;}
+.rub-panel.open{display:block;}
+.rub-fila{display:grid;grid-template-columns:96px 1fr;border-bottom:1px solid var(--border);}
+.rub-fila:last-child{border-bottom:none;}
+.rub-nivel{padding:7px 9px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:10px;letter-spacing:.3px;display:flex;align-items:center;}
+.rub-desc{padding:7px 11px;font-size:11.5px;line-height:1.45;color:var(--text);background:var(--surface);}
+.rub-sel{margin-top:6px;padding:7px 10px;border-radius:var(--radius-sm);font-size:11.5px;line-height:1.45;display:flex;gap:7px;align-items:flex-start;}
+.rub-sel-lbl{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:10px;white-space:nowrap;padding-top:1px;}
+
 /* ── EPIs MÓDULO */
 .epi-badge-danger{display:inline-flex;align-items:center;gap:4px;background:var(--danger-bg);border:1px solid var(--danger);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;color:var(--danger);}
 .epi-badge-warn{display:inline-flex;align-items:center;gap:4px;background:var(--warning-bg);border:1px solid var(--warning);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;color:var(--warning);}
@@ -2549,6 +2562,361 @@ var CE_NIVELES=[
   {id:'deficiente',    label:'DEFICIENTE',     puntos:3,  color:'#eab308',  bg:'rgba(234,179,8,.18)'},
   {id:'muydeficiente', label:'MUY DEFICIENTE', puntos:0,  color:'#ef4444',  bg:'rgba(239,68,68,.18)'}
 ];
+
+// ══════════════════════════════════════════
+// RÚBRICAS — Descriptores por criterio y nivel
+// exc = Excelente (10) · sat = Satisfactorio (6) · def = Deficiente (3) · mdf = Muy deficiente (0)
+// ══════════════════════════════════════════
+var RUBRICAS = {
+  // ── DESABOLLADO
+  d1:{exc:'Identifica con precisión el tipo de daño, su extensión y profundidad, y detecta tensiones y deformaciones ocultas antes de intervenir.',
+      sat:'Identifica correctamente el daño principal, aunque pasa por alto alguna tensión secundaria que localiza al ser advertido.',
+      def:'Valora el daño de forma superficial o incompleta, lo que le lleva a planificar mal la intervención.',
+      mdf:'No examina el daño antes de empezar o lo interpreta de forma errónea.'},
+  d2:{exc:'Selecciona con autonomía la técnica y las herramientas más adecuadas al tipo de chapa, acceso y daño, justificando su elección.',
+      sat:'Elige herramientas válidas para el trabajo, aunque necesita alguna orientación para afinar la técnica.',
+      def:'Selecciona herramientas poco adecuadas que dificultan el trabajo o comprometen el resultado.',
+      mdf:'Utiliza herramientas inapropiadas que dañan la chapa o hacen imposible la reparación.'},
+  d3:{exc:'Trabaja de forma progresiva y controlada, dosificando la fuerza y comprobando el avance de forma constante.',
+      sat:'Ejecuta el trabajo correctamente aunque en algún momento fuerza el proceso y debe corregir.',
+      def:'Trabaja con golpes o tracciones excesivas que generan nuevas deformaciones a corregir.',
+      mdf:'Actúa de forma brusca y descontrolada, agravando el daño original.'},
+  d4:{exc:'Comprueba sistemáticamente con luz rasante y entrega la superficie sin marcas, ondulaciones ni tensiones residuales.',
+      sat:'Verifica el resultado y la superficie es aceptable, aunque quedan marcas leves que detecta al revisarlo.',
+      def:'Revisa de forma insuficiente y deja marcas o tensiones visibles que obligan a repasar la zona.',
+      mdf:'No verifica el resultado y entrega la pieza con deformaciones evidentes.'},
+  d5:{exc:'Deja el puesto de trabajo limpio y ordenado, con las herramientas revisadas y en su lugar, y los residuos correctamente separados.',
+      sat:'Recoge el puesto de forma aceptable, aunque debe recordársele algún detalle de orden o limpieza.',
+      def:'Recoge de forma incompleta, dejando herramientas fuera de sitio o restos sin retirar.',
+      mdf:'No recoge el puesto de trabajo ni retira los residuos generados.'},
+  d_epi:{exc:'Utiliza todos los EPIs necesarios de forma correcta y sin necesidad de que se le indique, y comprueba su estado antes de usarlos.',
+      sat:'Usa los EPIs aunque necesita alguna indicación puntual o los coloca de forma imperfecta.',
+      def:'Prescinde de algún EPI o lo utiliza incorrectamente, y solo lo corrige al ser advertido.',
+      mdf:'Trabaja sin los EPIs obligatorios pese a las indicaciones recibidas, poniendo en riesgo su seguridad.'},
+
+  // ── PLÁSTICOS
+  p1:{exc:'Localiza e interpreta el código del plástico con soltura y confirma la identificación por sus características físicas.',
+      sat:'Identifica el tipo de plástico aunque necesita consultar tablas o pedir confirmación.',
+      def:'Identifica el material de forma dudosa o errónea, lo que condiciona mal la reparación.',
+      mdf:'No identifica el tipo de plástico ni consulta la documentación disponible.'},
+  p2:{exc:'Selecciona con criterio el método de reparación (soldadura, adhesivo estructural, grapas) según material, ubicación y esfuerzo previsto.',
+      sat:'Elige un método válido aunque no siempre el más eficiente para el caso concreto.',
+      def:'Selecciona un método incompatible con el material que obliga a rehacer el trabajo.',
+      mdf:'Aplica un método al azar sin valorar el tipo de plástico ni el tipo de rotura.'},
+  p3:{exc:'Limpia, desengrasa, achaflana los bordes y prepara la zona con esmero, dejando la superficie en condiciones óptimas de adherencia.',
+      sat:'Prepara la superficie correctamente aunque algún detalle de biselado o limpieza queda mejorable.',
+      def:'Prepara la zona de forma incompleta, comprometiendo la adherencia de la reparación.',
+      mdf:'No prepara la superficie o la contamina, haciendo inviable la reparación.'},
+  p4:{exc:'Aplica el método con precisión, respetando temperaturas y tiempos, sin quemar, deformar ni debilitar la pieza.',
+      sat:'Aplica el método correctamente con alguna imperfección menor que no compromete la pieza.',
+      def:'Aplica el método con errores que deterioran parcialmente la pieza o debilitan la unión.',
+      mdf:'Daña la pieza de forma irreversible durante la aplicación.'},
+  p5:{exc:'Comprueba la rigidez y continuidad de la reparación con criterio y detecta cualquier debilidad antes de dar por terminado.',
+      sat:'Comprueba el resultado y detecta los fallos evidentes, aunque su revisión no es del todo sistemática.',
+      def:'Realiza una comprobación superficial y da por buena una reparación con deficiencias.',
+      mdf:'No comprueba el resultado y entrega una reparación sin consistencia.'},
+  p_epi:{exc:'Utiliza todos los EPIs necesarios, incluida protección respiratoria adecuada a los humos del plástico, de forma autónoma.',
+      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso correcto.',
+      def:'Prescinde de algún EPI necesario y solo lo corrige al ser advertido.',
+      mdf:'Trabaja sin protección respiratoria u otros EPIs obligatorios pese a las advertencias.'},
+
+  // ── ENMASILLADO
+  e1:{exc:'Limpia y desengrasa toda la superficie con el producto y el procedimiento adecuados, sin dejar restos ni contaminar la zona tratada.',
+      sat:'Limpia y desengrasa correctamente aunque algún área queda mejorable o repite algún paso.',
+      def:'Limpia de forma incompleta, dejando restos de grasa o suciedad que afectan a la adherencia.',
+      mdf:'No limpia ni desengrasa antes de aplicar, comprometiendo todo el proceso.'},
+  e2:{exc:'Elimina bordes y escalones de la pintura vieja con transiciones suaves y perfectamente difuminadas.',
+      sat:'Prepara los bordes correctamente aunque queda algún escalón leve perceptible al tacto.',
+      def:'Deja escalones o bordes marcados que serán visibles tras el acabado.',
+      mdf:'No prepara los bordes, dejando cantos vivos que arruinan el resultado final.'},
+  e3:{exc:'Prepara la mezcla respetando con exactitud las proporciones del fabricante y ajustando la cantidad al trabajo previsto sin desperdicio.',
+      sat:'Realiza la mezcla correctamente aunque necesita comprobar las proporciones o prepara cantidad excesiva.',
+      def:'Se aparta de las proporciones indicadas, afectando al curado o a la trabajabilidad del producto.',
+      mdf:'Mezcla sin criterio ni consultar proporciones, obteniendo un producto inservible.'},
+  e4:{exc:'Aplica capas de espesor uniforme respetando escrupulosamente los tiempos de secado entre ellas.',
+      sat:'Controla espesores y tiempos correctamente aunque alguna capa queda algo irregular.',
+      def:'Aplica capas excesivamente gruesas o no respeta los tiempos, provocando defectos de secado.',
+      mdf:'Aplica sin control de espesor ni tiempos, generando defectos que obligan a eliminar todo el producto.'},
+  e5:{exc:'Selecciona y aplica el tipo de masilla adecuado a cada superficie (chapa, plástico, galvanizado) con total autonomía.',
+      sat:'Aplica la masilla adecuada aunque necesita confirmar la elección en superficies poco habituales.',
+      def:'Aplica un tipo de masilla poco adecuado al soporte, comprometiendo la adherencia.',
+      mdf:'Aplica masilla incompatible con la superficie, provocando su desprendimiento.'},
+  e6:{exc:'Selecciona y utiliza equipos, zona de trabajo y herramientas de forma correcta, manteniéndolos en perfecto estado.',
+      sat:'Utiliza equipos y herramientas adecuados aunque descuida algún aspecto de su mantenimiento.',
+      def:'Emplea herramientas inadecuadas o en mal estado que dificultan el trabajo.',
+      mdf:'Utiliza equipos incorrectamente o en zonas no habilitadas, con riesgo para sí mismo o el material.'},
+  e7:{exc:'Selecciona la secuencia correcta de abrasivos y lija con presión uniforme hasta obtener una superficie sin escalones, rayas ni hundimientos.',
+      sat:'Lija correctamente aunque necesita alguna indicación sobre la secuencia de granos o deja marcas leves que corrige.',
+      def:'Emplea abrasivos inadecuados o lija de forma irregular, dejando escalones o rayas que obligan a repasar.',
+      mdf:'No lija o daña la superficie con abrasivo excesivamente grueso, obligando a rehacer el enmasillado.'},
+  e8:{exc:'Emplea las guías de lijado sistemáticamente y las interpreta con criterio para lograr una igualación perfecta.',
+      sat:'Usa las guías de lijado aunque no siempre en el momento más oportuno del proceso.',
+      def:'Emplea las guías de forma esporádica, sin aprovechar la información que aportan.',
+      mdf:'No emplea guías de lijado, lo que impide detectar las irregularidades de la superficie.'},
+  e9:{exc:'Verifica el acabado de forma sistemática (vista, tacto, luz rasante) y garantiza que cumple todos los estándares antes de entregar.',
+      sat:'Verifica el acabado y detecta los defectos evidentes, aunque su revisión no es exhaustiva.',
+      def:'Realiza una comprobación superficial y da por bueno un acabado con defectos apreciables.',
+      mdf:'No verifica el acabado y entrega la superficie con defectos evidentes.'},
+  e10:{exc:'Localiza e interpreta con soltura las fichas técnicas, aplicando correctamente las indicaciones del fabricante.',
+      sat:'Consulta la documentación técnica y la interpreta correctamente con alguna ayuda puntual.',
+      def:'Interpreta la documentación de forma parcial o incorrecta, aplicando mal alguna indicación.',
+      mdf:'No consulta la documentación técnica disponible.'},
+  e_epi:{exc:'Utiliza todos los EPIs necesarios, con mascarilla adecuada al lijado y protección ocular, de forma autónoma y correcta.',
+      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso o estado.',
+      def:'Prescinde de algún EPI necesario durante el lijado y solo lo corrige al ser advertido.',
+      mdf:'Lija sin protección respiratoria ni ocular pese a las advertencias recibidas.'},
+
+  // ── APAREJADO
+  a1:{exc:'Selecciona el aparejo idóneo según su clasificación y las características del soporte, justificando técnicamente su elección.',
+      sat:'Selecciona un aparejo válido aunque necesita consultar para confirmar la elección.',
+      def:'Elige un aparejo poco adecuado al soporte, comprometiendo la adherencia o el acabado.',
+      mdf:'Selecciona el aparejo sin criterio ni atender a las características de la superficie.'},
+  a2:{exc:'Revisa minuciosamente el enmascarado y corrige cualquier zona desprotegida antes de comenzar la aplicación.',
+      sat:'Comprueba el enmascarado y detecta los fallos principales, aunque alguna zona queda mejorable.',
+      def:'Comprueba el enmascarado superficialmente, quedando zonas expuestas que resultan manchadas.',
+      mdf:'No comprueba el enmascarado antes de aplicar, con daños en zonas adyacentes.'},
+  a3:{exc:'Selecciona los equipos adecuados y ajusta con precisión presión, caudal y abanico según producto y superficie.',
+      sat:'Selecciona los equipos correctamente aunque necesita ayuda para afinar los parámetros.',
+      def:'Ajusta mal los parámetros, provocando defectos de aplicación como piel de naranja o pulverizado seco.',
+      mdf:'No ajusta los equipos o los utiliza con parámetros claramente incorrectos.'},
+  a4:{exc:'Realiza la mezcla con exactitud milimétrica según la ficha técnica, midiendo con precisión y sin desperdicio.',
+      sat:'Realiza la mezcla correctamente aunque necesita verificar las proporciones o ajustar la cantidad.',
+      def:'Se aparta de las proporciones indicadas, afectando al curado, la viscosidad o el acabado.',
+      mdf:'Mezcla sin respetar proporciones ni consultar la ficha técnica, obteniendo un producto inservible.'},
+  a5:{exc:'Prepara la superficie completa mediante lijado, desengrasado y atrapapolvos, dejándola en condiciones óptimas de recepción.',
+      sat:'Prepara la superficie correctamente aunque omite o descuida algún paso menor.',
+      def:'Prepara la superficie de forma incompleta, quedando restos que afectan al acabado.',
+      mdf:'No prepara la superficie antes de aplicar el aparejo.'},
+  a6:{exc:'Aplica cada tipo de aparejo con la técnica correcta y respeta escrupulosamente los tiempos de evaporación entre manos.',
+      sat:'Aplica correctamente aunque acorta o alarga levemente algún tiempo de evaporación.',
+      def:'No respeta los tiempos de evaporación, provocando descuelgues, hervidos o defectos de secado.',
+      mdf:'Aplica sin control de tiempos ni técnica, generando defectos que obligan a eliminar el producto.'},
+  a7:{exc:'Maneja la pistola con distancia, velocidad y solape constantes, logrando capas uniformes sin defectos.',
+      sat:'Aplica con pistola de forma correcta aunque presenta alguna irregularidad de solape o espesor.',
+      def:'Aplica con distancia o velocidad irregulares, generando defectos apreciables en la capa.',
+      mdf:'No controla el manejo de la pistola, provocando descuelgues o zonas sin cubrir.'},
+  a8:{exc:'Selecciona y aplica la técnica de secado adecuada al producto y condiciones, obteniendo un acabado óptimo.',
+      sat:'Emplea técnicas de secado correctas aunque necesita indicaciones sobre tiempos o temperatura.',
+      def:'Aplica un secado inadecuado que provoca defectos en el acabado.',
+      mdf:'No controla el secado, arruinando el trabajo realizado.'},
+  a9:{exc:'Lija con la secuencia correcta de abrasivos hasta obtener una superficie perfecta en forma, dimensión y ausencia de defectos.',
+      sat:'Lija correctamente aunque queda alguna marca leve o zona ligeramente irregular.',
+      def:'Lija de forma insuficiente o excesiva, dejando defectos dimensionales o traspasos.',
+      mdf:'No lija o traspasa el aparejo hasta el soporte, obligando a repetir el proceso.'},
+  a10:{exc:'Verifica sistemáticamente que la superficie cumple todos los requisitos de calidad exigidos para recibir el color.',
+      sat:'Verifica la superficie y detecta los defectos evidentes, aunque su revisión no es exhaustiva.',
+      def:'Realiza una verificación superficial y da por buena una superficie con defectos.',
+      mdf:'No verifica la superficie antes de dar paso a la fase de embellecimiento.'},
+  a11:{exc:'Localiza e interpreta con soltura las fichas técnicas de los aparejos, aplicando correctamente todas las indicaciones.',
+      sat:'Consulta e interpreta la documentación técnica correctamente con alguna ayuda puntual.',
+      def:'Interpreta la documentación de forma parcial, aplicando mal alguna indicación relevante.',
+      mdf:'No consulta la documentación técnica de los productos que utiliza.'},
+  a12:{exc:'Selecciona y aplica el proceso y los productos específicos para plástico (imprimación de adherencia, flexibilizante) con total corrección.',
+      sat:'Aplica aparejo sobre plástico correctamente aunque necesita confirmar la elección de productos.',
+      def:'Omite algún producto específico para plástico, comprometiendo la adherencia o la flexibilidad.',
+      mdf:'Aplica aparejo sobre plástico sin los productos específicos, provocando su desprendimiento.'},
+  a13:{exc:'Selecciona el producto UV adecuado, ajusta correctamente el equipo de curado y controla distancia y tiempo con precisión.',
+      sat:'Aplica aparejo UV correctamente aunque necesita indicaciones sobre los parámetros de curado.',
+      def:'Ajusta mal el curado UV, dejando zonas sin polimerizar o sobrecuradas.',
+      mdf:'No controla el proceso UV, obteniendo un resultado inservible.'},
+  a14:{exc:'Realiza el control y la puesta a punto de los equipos de forma autónoma, limpiando y verificando su correcto funcionamiento.',
+      sat:'Realiza el mantenimiento de los equipos aunque descuida algún aspecto de la limpieza o verificación.',
+      def:'Realiza un mantenimiento incompleto que deja los equipos en condiciones deficientes.',
+      mdf:'No realiza ningún control ni limpieza de los equipos tras su uso.'},
+  a_epi:{exc:'Utiliza todos los EPIs necesarios, incluida protección respiratoria con filtro adecuado a isocianatos, de forma autónoma.',
+      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre el tipo de filtro o su colocación.',
+      def:'Prescinde de algún EPI necesario durante la aplicación y solo lo corrige al ser advertido.',
+      mdf:'Aplica productos con isocianatos sin protección respiratoria pese a las advertencias.'},
+
+  // ── ENMASCARADO
+  em1:{exc:'Identifica con precisión todas las zonas a enmascarar, anticipando el recorrido del producto y las zonas de riesgo.',
+      sat:'Identifica correctamente las zonas principales aunque pasa por alto alguna secundaria.',
+      def:'Identifica las zonas de forma incompleta, quedando áreas expuestas al producto.',
+      mdf:'No identifica las zonas a proteger antes de comenzar.'},
+  em2:{exc:'Selecciona con criterio los materiales, útiles y herramientas óptimos para cada zona y tipo de enmascarado.',
+      sat:'Selecciona materiales válidos aunque no siempre los más adecuados para cada zona.',
+      def:'Emplea materiales poco adecuados que dificultan el trabajo o no protegen correctamente.',
+      mdf:'Utiliza materiales inapropiados o incompatibles con los productos a aplicar.'},
+  em3:{exc:'Ejecuta enmascarados parciales y totales con técnica depurada, ajustando el método al alcance de la reparación.',
+      sat:'Realiza ambos tipos de enmascarado correctamente aunque con algún acabado mejorable.',
+      def:'Realiza el enmascarado con deficiencias que permiten el paso de producto.',
+      mdf:'No distingue entre tipos de enmascarado ni los ejecuta correctamente.'},
+  em4:{exc:'Enmascara interiores y exteriores con precisión, protegiendo huecos, juntas y zonas de difícil acceso.',
+      sat:'Realiza el enmascarado interior y exterior correctamente aunque alguna zona queda mejorable.',
+      def:'Descuida el enmascarado de interiores o zonas de difícil acceso, que resultan manchadas.',
+      mdf:'No enmascara interiores ni zonas ocultas, con daños importantes.'},
+  em5:{exc:'Protege cristales, lunas y espejos con ajuste perfecto, sin dejar holguras ni forzar las juntas.',
+      sat:'Protege correctamente los cristales aunque algún borde queda con ajuste mejorable.',
+      def:'Enmascara los cristales de forma deficiente, quedando restos de producto sobre ellos.',
+      mdf:'No protege cristales ni espejos, que resultan dañados por el producto.'},
+  em6:{exc:'Trata bordes y aristas con esmero especial, logrando líneas limpias y transiciones sin escalón de pintura.',
+      sat:'Cuida los bordes correctamente aunque alguna arista presenta un acabado mejorable.',
+      def:'Descuida el tratamiento de bordes, dejando líneas marcadas o escalones visibles.',
+      mdf:'No presta atención a bordes ni aristas, con resultados claramente defectuosos.'},
+  em7:{exc:'Clasifica todos los residuos en sus contenedores correspondientes de forma autónoma y sistemática.',
+      sat:'Clasifica los residuos correctamente aunque necesita alguna indicación puntual.',
+      def:'Clasifica los residuos de forma incompleta, mezclando algunas fracciones.',
+      mdf:'No clasifica los residuos ni los retira del puesto de trabajo.'},
+  em8:{exc:'Verifica la compatibilidad de los materiales de enmascarado con los productos a aplicar, evitando reacciones o marcados.',
+      sat:'Comprueba la compatibilidad aunque necesita confirmar la elección en algún caso.',
+      def:'No verifica la compatibilidad, empleando materiales que reaccionan con el producto.',
+      mdf:'Emplea materiales claramente incompatibles que arruinan el acabado.'},
+  em9:{exc:'Revisa el enmascarado completo antes de aplicar y garantiza una protección total con acabado de calidad profesional.',
+      sat:'Revisa el enmascarado y corrige los fallos evidentes, aunque la revisión no es exhaustiva.',
+      def:'Revisa superficialmente y da por bueno un enmascarado con zonas desprotegidas.',
+      mdf:'No revisa el enmascarado, que resulta claramente insuficiente.'},
+  em10:{exc:'Cumple todas las normas de seguridad y medioambientales de forma autónoma, con orden y limpieza ejemplares.',
+      sat:'Cumple las normas de seguridad y ambientales aunque necesita alguna indicación puntual.',
+      def:'Incumple alguna norma de seguridad o gestión ambiental y solo lo corrige al ser advertido.',
+      mdf:'Incumple normas básicas de seguridad o vierte residuos de forma inadecuada.'},
+  em_epi:{exc:'Utiliza todos los EPIs necesarios de forma correcta y autónoma durante toda la actividad.',
+      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso correcto.',
+      def:'Prescinde de algún EPI necesario y solo lo corrige al ser advertido.',
+      mdf:'Trabaja sin los EPIs obligatorios pese a las indicaciones recibidas.'},
+
+  // ── LIMPIEZA
+  l1:{exc:'Limpia y desengrasa toda la superficie con el producto y el procedimiento adecuados, dejándola en condiciones óptimas.',
+      sat:'Limpia y desengrasa correctamente aunque alguna zona queda mejorable.',
+      def:'Limpia de forma incompleta, dejando restos que afectarán a la adherencia posterior.',
+      mdf:'No limpia ni desengrasa la superficie, o la contamina durante el proceso.'},
+  l_epi:{exc:'Utiliza todos los EPIs necesarios, con guantes y protección adecuada a los disolventes, de forma autónoma.',
+      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso.',
+      def:'Prescinde de algún EPI necesario al manejar disolventes y solo lo corrige al ser advertido.',
+      mdf:'Manipula disolventes sin protección pese a las advertencias recibidas.'},
+
+  // ── PINTADO
+  pi1:{exc:'Localiza el código de color en la placa del vehículo y lo contrasta con documentación técnica y carta de colores con total autonomía.',
+      sat:'Identifica el código de color correctamente aunque necesita ayuda para localizar la placa o interpretar variantes.',
+      def:'Identifica el código de forma dudosa o no contrasta con la carta, con riesgo de error de color.',
+      mdf:'No localiza ni identifica el código de color del vehículo.'},
+  pi2:{exc:'Selecciona con criterio todos los productos de la mezcla, distinguiendo sistemas base agua y disolvente y sus compatibilidades.',
+      sat:'Selecciona los productos correctamente aunque necesita confirmar alguna elección.',
+      def:'Selecciona algún producto incompatible con el sistema empleado.',
+      mdf:'Selecciona productos al azar, sin distinguir entre sistemas base agua y disolvente.'},
+  pi3:{exc:'Maneja la balanza computerizada con soltura y obtiene mezclas exactas en proporción y viscosidad.',
+      sat:'Realiza la mezcla correctamente aunque necesita ayuda con el manejo de la balanza o ajustar la viscosidad.',
+      def:'Comete errores en la pesada o en la viscosidad que afectan al comportamiento del producto.',
+      mdf:'No maneja la balanza ni respeta proporciones, obteniendo una mezcla inservible.'},
+  pi4:{exc:'Activa y cataliza siguiendo con exactitud las especificaciones técnicas y comprueba la viscosidad con el medidor adecuado.',
+      sat:'Cataliza correctamente aunque necesita verificar las proporciones o ajustar la viscosidad.',
+      def:'Se aparta de las especificaciones de catálisis, afectando al curado o al brillo final.',
+      mdf:'Cataliza sin criterio ni consultar especificaciones, arruinando el producto.'},
+  pi5:{exc:'Trabaja con seguridad, precisión, orden y limpieza en todo momento, manteniendo la cabina y el equipo en perfectas condiciones.',
+      sat:'Trabaja de forma ordenada y segura aunque descuida algún aspecto de la limpieza del equipo.',
+      def:'Trabaja con desorden o descuida la limpieza, afectando a la calidad del resultado.',
+      mdf:'Trabaja de forma insegura o deja el equipo y la zona en malas condiciones.'},
+  pi_epi:{exc:'Utiliza equipo de protección respiratoria adecuado, buzo y guantes de forma correcta y autónoma durante toda la aplicación.',
+      sat:'Usa los EPIs aunque necesita alguna indicación sobre el tipo de filtro o su colocación.',
+      def:'Prescinde de algún EPI necesario en cabina y solo lo corrige al ser advertido.',
+      mdf:'Pinta sin protección respiratoria adecuada pese a las advertencias recibidas.'},
+
+  // ── BARNIZADO
+  b1:{exc:'Interpreta con soltura las fichas técnicas, identificando características, proporciones y condiciones de aplicación de cada producto.',
+      sat:'Interpreta la documentación técnica correctamente con alguna ayuda puntual.',
+      def:'Interpreta la documentación de forma parcial, aplicando mal alguna indicación.',
+      mdf:'No consulta ni interpreta la documentación técnica de los productos.'},
+  b2:{exc:'Selecciona con criterio todos los productos de la mezcla según sistema, compatibilidad y condiciones de trabajo.',
+      sat:'Selecciona los productos correctamente aunque necesita confirmar alguna elección.',
+      def:'Selecciona algún producto incompatible que afecta al resultado final.',
+      mdf:'Selecciona productos sin criterio ni atender a su compatibilidad.'},
+  b3:{exc:'Maneja la balanza computerizada con soltura y obtiene mezclas exactas en proporción y viscosidad.',
+      sat:'Realiza la mezcla correctamente aunque necesita ayuda con la balanza o el ajuste de viscosidad.',
+      def:'Comete errores de pesada o viscosidad que afectan al comportamiento del barniz.',
+      mdf:'No maneja la balanza ni respeta proporciones, obteniendo una mezcla inservible.'},
+  b4:{exc:'Realiza las pruebas de ajuste de color en cámara cromática con método, valorando correctamente el resultado bajo distintas luces.',
+      sat:'Realiza las pruebas de color correctamente aunque necesita ayuda para valorar el resultado.',
+      def:'Realiza las pruebas de forma incompleta o interpreta mal el ajuste obtenido.',
+      mdf:'No realiza pruebas de ajuste de color antes de aplicar.'},
+  b5:{exc:'Activa y cataliza siguiendo con exactitud las especificaciones y comprueba la viscosidad con el medidor adecuado.',
+      sat:'Cataliza correctamente aunque necesita verificar proporciones o ajustar viscosidad.',
+      def:'Se aparta de las especificaciones, afectando al curado o al brillo final.',
+      mdf:'Cataliza sin criterio ni consultar especificaciones, arruinando el producto.'},
+  b6:{exc:'Trabaja con seguridad, precisión, orden y limpieza, manteniendo cabina y equipos en condiciones óptimas.',
+      sat:'Trabaja de forma ordenada y segura aunque descuida algún aspecto de la limpieza.',
+      def:'Trabaja con desorden o descuida la limpieza, afectando a la calidad del acabado.',
+      mdf:'Trabaja de forma insegura o deja el equipo y la cabina en malas condiciones.'},
+  b_epi:{exc:'Utiliza protección respiratoria con filtro adecuado, buzo y guantes de forma correcta y autónoma durante toda la aplicación.',
+      sat:'Usa los EPIs aunque necesita alguna indicación sobre el tipo de filtro o su colocación.',
+      def:'Prescinde de algún EPI necesario en cabina y solo lo corrige al ser advertido.',
+      mdf:'Barniza sin protección respiratoria adecuada pese a las advertencias recibidas.'},
+
+  // ── CORRECCIÓN
+  c1:{exc:'Localiza el defecto, determina su causa con precisión y decide el proceso de reparación más eficiente, justificándolo.',
+      sat:'Localiza el defecto y propone una reparación válida aunque necesita orientación sobre su causa.',
+      def:'Identifica el defecto de forma imprecisa y propone un proceso poco adecuado.',
+      mdf:'No localiza el defecto ni sabe qué proceso aplicar.'},
+  c2:{exc:'Selecciona y maneja con destreza los equipos, útiles y herramientas específicos de cada proceso de corrección.',
+      sat:'Utiliza los equipos correctamente aunque necesita indicaciones sobre alguno menos habitual.',
+      def:'Emplea equipos o herramientas poco adecuados que dificultan la corrección.',
+      mdf:'Utiliza equipos incorrectamente, agravando el defecto o dañando la superficie.'},
+  c3:{exc:'Corrige defectos de aplicación (descuelgues, piel de naranja, pulverizado) devolviendo la superficie a su calidad original.',
+      sat:'Corrige el defecto correctamente aunque el acabado final queda ligeramente mejorable.',
+      def:'Corrige el defecto de forma incompleta, quedando marcas apreciables.',
+      mdf:'No corrige el defecto o empeora el estado de la superficie.'},
+  c4:{exc:'Identifica y corrige defectos por mala preparación (falta de adherencia, marcas de lijado, siluetas) resolviendo la causa de origen.',
+      sat:'Corrige el defecto correctamente aunque necesita orientación para identificar su origen.',
+      def:'Corrige solo el síntoma sin resolver la causa, con riesgo de que el defecto reaparezca.',
+      mdf:'No identifica ni corrige defectos de preparación.'},
+  c5:{exc:'Reconoce el origen del defecto (climático, mecánico, industrial o biológico) y aplica el tratamiento específico adecuado.',
+      sat:'Corrige el defecto correctamente aunque necesita ayuda para identificar su origen.',
+      def:'Aplica un tratamiento genérico sin atender al origen concreto del defecto.',
+      mdf:'No reconoce el tipo de defecto ni aplica tratamiento alguno.'},
+  c6:{exc:'Pule y abrillanta con la secuencia correcta de abrasivos y pastas, devolviendo un brillo uniforme sin marcas ni quemados.',
+      sat:'Pule y abrillanta correctamente aunque quedan marcas leves de pulido en alguna zona.',
+      def:'Pule de forma irregular, dejando marcas visibles o zonas sin brillo.',
+      mdf:'Quema la pintura o traspasa la capa durante el pulido, agravando el daño.'},
+  c7:{exc:'Respeta escrupulosamente las normas de uso de equipos, materiales e instalaciones, dejándolos en perfecto estado.',
+      sat:'Respeta las normas de utilización aunque descuida algún aspecto del mantenimiento.',
+      def:'Incumple alguna norma de uso y solo lo corrige al ser advertido.',
+      mdf:'Utiliza equipos e instalaciones sin respetar las normas, con riesgo de daño o accidente.'},
+  c_epi:{exc:'Utiliza todos los EPIs necesarios, con protección ocular y respiratoria adecuada al pulido, de forma autónoma.',
+      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso.',
+      def:'Prescinde de algún EPI necesario durante el pulido y solo lo corrige al ser advertido.',
+      mdf:'Pule sin protección ocular ni respiratoria pese a las advertencias recibidas.'}
+};
+
+function getRubrica(ceId, nivelId){
+  var r = RUBRICAS[ceId];
+  if(!r) return null;
+  var mapa = { excelente:'exc', satisfactorio:'sat', deficiente:'def', muydeficiente:'mdf' };
+  return r[mapa[nivelId]] || null;
+}
+
+function toggleRubrica(key){
+  var p = document.getElementById('pn-'+key);
+  var b = document.getElementById('tg-'+key);
+  if(!p) return;
+  var abierto = p.classList.toggle('open');
+  if(b) b.classList.toggle('open', abierto);
+}
+
+function renderRubricaPanel(rubKey, ceId){
+  var r = RUBRICAS[ceId];
+  if(!r) return '';
+  var h = '<div class="rub-panel" id="pn-'+rubKey+'">';
+  CE_NIVELES.forEach(function(n){
+    var d = getRubrica(ceId, n.id);
+    if(!d) return;
+    h += '<div class="rub-fila">'+
+      '<div class="rub-nivel" style="background:'+n.bg+';color:'+n.color+'">'+n.puntos+' · '+n.label+'</div>'+
+      '<div class="rub-desc">'+d+'</div>'+
+    '</div>';
+  });
+  return h + '</div>';
+}
+
+function renderRubricaSel(ceId, nivelId){
+  if(!nivelId) return '';
+  var d = getRubrica(ceId, nivelId);
+  if(!d) return '';
+  var n = CE_NIVELES.find(function(x){ return x.id===nivelId; });
+  if(!n) return '';
+  return '<div class="rub-sel" style="background:'+n.bg+';border-left:3px solid '+n.color+'">'+
+    '<span class="rub-sel-lbl" style="color:'+n.color+'">'+n.puntos+' · '+n.label+'</span>'+
+    '<span style="color:var(--text)">'+d+'</span>'+
+  '</div>';
+}
+
 var CRITERIOS_EVALUACION={
   desabollado:[
     {id:'d1',ra:'RA1',ce:'CE1.a',texto:'Identifica el tipo y extensión del daño antes de intervenir'},
@@ -2870,6 +3238,8 @@ function evalCierre(alumnoKey, vid, fase, ceId, nivelId){
     btn.className = 'eval-btn'+(isActive?' active-'+n.id:'');
     btn.innerHTML = isActive ? '<span class="eval-nota-chip" style="background:'+n.bg+';color:'+n.color+'">'+n.puntos+'</span>' : n.puntos;
   });
+  var selDiv = document.getElementById('sel-rub-'+alumnoKey+'-'+vid+'-'+fase+'-'+ceId);
+  if(selDiv) selDiv.innerHTML = renderRubricaSel(ceId, evalTemp[tmpKey][ceId]||null);
   var allEval = criterios.every(function(ce){ return !!evalTemp[tmpKey][ce.id]; });
   var btnCerrar = document.getElementById('btnCerrar-'+alumnoKey+'-'+vid+'-'+fase);
   if(btnCerrar) btnCerrar.disabled = !allEval;
@@ -3253,10 +3623,15 @@ function renderEvaluacion(alumnoKey, regs, vehiculos, cierres){
             var tmpNivel=(cierres[tmpKey]||{})[ce.id]||null;
             var nivel=tmpNivel?CE_NIVELES.find(function(n){return n.id===tmpNivel;}):null;
             var isEpi=ce.epi===true;
+            var rubKey='rub-'+alumnoKey+'-'+vid+'-'+fase+'-'+ce.id;
             html+='<div class="eval-row'+(isEpi?' ce-epi-highlight':'')+'">'+
               '<div><div class="eval-ce-badge"'+(isEpi?' style="background:rgba(21,101,192,.2)"':'')+'>'+ce.ce+'</div>'+
               '<div style="font-size:9px;color:var(--text-dim);text-align:center">'+ce.ra+'</div></div>'+
-              '<div class="eval-texto">'+ce.texto+'</div>'+
+              '<div class="eval-texto">'+ce.texto+
+                (RUBRICAS[ce.id]?('<button class="rub-toggle" id="tg-'+rubKey+'" onclick="toggleRubrica(&#39;'+rubKey+'&#39;)">RUBRICA</button>'):'')+
+                (RUBRICAS[ce.id]?renderRubricaPanel(rubKey, ce.id):'')+
+                '<div id="sel-'+rubKey+'">'+renderRubricaSel(ce.id, tmpNivel)+'</div>'+
+              '</div>'+
               '<div class="eval-btns">';
             CE_NIVELES.forEach(function(n){
               var isActive=tmpNivel===n.id;
