@@ -2595,10 +2595,6 @@ var RUBRICAS = {
       sat:'Recoge el puesto de forma aceptable, aunque debe recordársele algún detalle de orden o limpieza.',
       def:'Recoge de forma incompleta, dejando herramientas fuera de sitio o restos sin retirar.',
       mdf:'No recoge el puesto de trabajo ni retira los residuos generados.'},
-  d_epi:{exc:'Utiliza todos los EPIs necesarios de forma correcta y sin necesidad de que se le indique, y comprueba su estado antes de usarlos.',
-      sat:'Usa los EPIs aunque necesita alguna indicación puntual o los coloca de forma imperfecta.',
-      def:'Prescinde de algún EPI o lo utiliza incorrectamente, y solo lo corrige al ser advertido.',
-      mdf:'Trabaja sin los EPIs obligatorios pese a las indicaciones recibidas, poniendo en riesgo su seguridad.'},
 
   // ── PLÁSTICOS
   p1:{exc:'Localiza e interpreta el código del plástico con soltura y confirma la identificación por sus características físicas.',
@@ -2621,10 +2617,6 @@ var RUBRICAS = {
       sat:'Comprueba el resultado y detecta los fallos evidentes, aunque su revisión no es del todo sistemática.',
       def:'Realiza una comprobación superficial y da por buena una reparación con deficiencias.',
       mdf:'No comprueba el resultado y entrega una reparación sin consistencia.'},
-  p_epi:{exc:'Utiliza todos los EPIs necesarios, incluida protección respiratoria adecuada a los humos del plástico, de forma autónoma.',
-      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso correcto.',
-      def:'Prescinde de algún EPI necesario y solo lo corrige al ser advertido.',
-      mdf:'Trabaja sin protección respiratoria u otros EPIs obligatorios pese a las advertencias.'},
 
   // ── ENMASILLADO
   e1:{exc:'Limpia y desengrasa toda la superficie con el producto y el procedimiento adecuados, sin dejar restos ni contaminar la zona tratada.',
@@ -2667,10 +2659,6 @@ var RUBRICAS = {
       sat:'Consulta la documentación técnica y la interpreta correctamente con alguna ayuda puntual.',
       def:'Interpreta la documentación de forma parcial o incorrecta, aplicando mal alguna indicación.',
       mdf:'No consulta la documentación técnica disponible.'},
-  e_epi:{exc:'Utiliza todos los EPIs necesarios, con mascarilla adecuada al lijado y protección ocular, de forma autónoma y correcta.',
-      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso o estado.',
-      def:'Prescinde de algún EPI necesario durante el lijado y solo lo corrige al ser advertido.',
-      mdf:'Lija sin protección respiratoria ni ocular pese a las advertencias recibidas.'},
 
   // ── APAREJADO
   a1:{exc:'Selecciona el aparejo idóneo según su clasificación y las características del soporte, justificando técnicamente su elección.',
@@ -2729,10 +2717,6 @@ var RUBRICAS = {
       sat:'Realiza el mantenimiento de los equipos aunque descuida algún aspecto de la limpieza o verificación.',
       def:'Realiza un mantenimiento incompleto que deja los equipos en condiciones deficientes.',
       mdf:'No realiza ningún control ni limpieza de los equipos tras su uso.'},
-  a_epi:{exc:'Utiliza todos los EPIs necesarios, incluida protección respiratoria con filtro adecuado a isocianatos, de forma autónoma.',
-      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre el tipo de filtro o su colocación.',
-      def:'Prescinde de algún EPI necesario durante la aplicación y solo lo corrige al ser advertido.',
-      mdf:'Aplica productos con isocianatos sin protección respiratoria pese a las advertencias.'},
 
   // ── ENMASCARADO
   em1:{exc:'Identifica con precisión todas las zonas a enmascarar, anticipando el recorrido del producto y las zonas de riesgo.',
@@ -2775,20 +2759,12 @@ var RUBRICAS = {
       sat:'Cumple las normas de seguridad y ambientales aunque necesita alguna indicación puntual.',
       def:'Incumple alguna norma de seguridad o gestión ambiental y solo lo corrige al ser advertido.',
       mdf:'Incumple normas básicas de seguridad o vierte residuos de forma inadecuada.'},
-  em_epi:{exc:'Utiliza todos los EPIs necesarios de forma correcta y autónoma durante toda la actividad.',
-      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso correcto.',
-      def:'Prescinde de algún EPI necesario y solo lo corrige al ser advertido.',
-      mdf:'Trabaja sin los EPIs obligatorios pese a las indicaciones recibidas.'},
 
   // ── LIMPIEZA
   l1:{exc:'Limpia y desengrasa toda la superficie con el producto y el procedimiento adecuados, dejándola en condiciones óptimas.',
       sat:'Limpia y desengrasa correctamente aunque alguna zona queda mejorable.',
       def:'Limpia de forma incompleta, dejando restos que afectarán a la adherencia posterior.',
       mdf:'No limpia ni desengrasa la superficie, o la contamina durante el proceso.'},
-  l_epi:{exc:'Utiliza todos los EPIs necesarios, con guantes y protección adecuada a los disolventes, de forma autónoma.',
-      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso.',
-      def:'Prescinde de algún EPI necesario al manejar disolventes y solo lo corrige al ser advertido.',
-      mdf:'Manipula disolventes sin protección pese a las advertencias recibidas.'},
 
   // ── PINTADO
   pi1:{exc:'Localiza el código de color en la placa del vehículo y lo contrasta con documentación técnica y carta de colores con total autonomía.',
@@ -2811,10 +2787,6 @@ var RUBRICAS = {
       sat:'Trabaja de forma ordenada y segura aunque descuida algún aspecto de la limpieza del equipo.',
       def:'Trabaja con desorden o descuida la limpieza, afectando a la calidad del resultado.',
       mdf:'Trabaja de forma insegura o deja el equipo y la zona en malas condiciones.'},
-  pi_epi:{exc:'Utiliza equipo de protección respiratoria adecuado, buzo y guantes de forma correcta y autónoma durante toda la aplicación.',
-      sat:'Usa los EPIs aunque necesita alguna indicación sobre el tipo de filtro o su colocación.',
-      def:'Prescinde de algún EPI necesario en cabina y solo lo corrige al ser advertido.',
-      mdf:'Pinta sin protección respiratoria adecuada pese a las advertencias recibidas.'},
 
   // ── BARNIZADO
   b1:{exc:'Interpreta con soltura las fichas técnicas, identificando características, proporciones y condiciones de aplicación de cada producto.',
@@ -2841,10 +2813,6 @@ var RUBRICAS = {
       sat:'Trabaja de forma ordenada y segura aunque descuida algún aspecto de la limpieza.',
       def:'Trabaja con desorden o descuida la limpieza, afectando a la calidad del acabado.',
       mdf:'Trabaja de forma insegura o deja el equipo y la cabina en malas condiciones.'},
-  b_epi:{exc:'Utiliza protección respiratoria con filtro adecuado, buzo y guantes de forma correcta y autónoma durante toda la aplicación.',
-      sat:'Usa los EPIs aunque necesita alguna indicación sobre el tipo de filtro o su colocación.',
-      def:'Prescinde de algún EPI necesario en cabina y solo lo corrige al ser advertido.',
-      mdf:'Barniza sin protección respiratoria adecuada pese a las advertencias recibidas.'},
 
   // ── CORRECCIÓN
   c1:{exc:'Localiza el defecto, determina su causa con precisión y decide el proceso de reparación más eficiente, justificándolo.',
@@ -2875,10 +2843,6 @@ var RUBRICAS = {
       sat:'Respeta las normas de utilización aunque descuida algún aspecto del mantenimiento.',
       def:'Incumple alguna norma de uso y solo lo corrige al ser advertido.',
       mdf:'Utiliza equipos e instalaciones sin respetar las normas, con riesgo de daño o accidente.'},
-  c_epi:{exc:'Utiliza todos los EPIs necesarios, con protección ocular y respiratoria adecuada al pulido, de forma autónoma.',
-      sat:'Usa los EPIs aunque necesita alguna indicación puntual sobre su uso.',
-      def:'Prescinde de algún EPI necesario durante el pulido y solo lo corrige al ser advertido.',
-      mdf:'Pule sin protección ocular ni respiratoria pese a las advertencias recibidas.'}
 };
 
 function getRubrica(ceId, nivelId){
@@ -2929,16 +2893,14 @@ var CRITERIOS_EVALUACION={
     {id:'d2',ra:'RA1',ce:'CE1.b',texto:'Selecciona la técnica y herramientas adecuadas al daño'},
     {id:'d3',ra:'RA1',ce:'CE1.c',texto:'Ejecuta el trabajo de forma progresiva y controlada'},
     {id:'d4',ra:'RA1',ce:'CE1.d',texto:'Verifica el resultado con luz rasante sin marcas ni tensiones'},
-    {id:'d5',ra:'RA1',ce:'CE1.e',texto:'Recoge y limpia el puesto de trabajo al finalizar'},
-    {id:'d_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'d5',ra:'RA1',ce:'CE1.e',texto:'Recoge y limpia el puesto de trabajo al finalizar'}
   ],
   plasticos:[
     {id:'p1',ra:'RA2',ce:'CE2.a',texto:'Identifica correctamente el tipo de plástico por código'},
     {id:'p2',ra:'RA2',ce:'CE2.b',texto:'Selecciona el método de reparación adecuado al material'},
     {id:'p3',ra:'RA2',ce:'CE2.c',texto:'Prepara la superficie (limpieza, bordes, desengrasado)'},
     {id:'p4',ra:'RA2',ce:'CE2.d',texto:'Aplica el método correctamente sin deteriorar la pieza'},
-    {id:'p5',ra:'RA2',ce:'CE2.e',texto:'Comprueba la rigidez y continuidad de la reparación'},
-    {id:'p_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'p5',ra:'RA2',ce:'CE2.e',texto:'Comprueba la rigidez y continuidad de la reparación'}
   ],
   enmasillado:[
     {id:'e1', ra:'RA3',ce:'CE3.a',texto:'Limpia y desengrasas las superficies que es preciso tratar'},
@@ -2950,8 +2912,7 @@ var CRITERIOS_EVALUACION={
     {id:'e7', ra:'RA3',ce:'CE3.g',texto:'Lija las zonas enmasilladas teniendo en cuenta el tipo de superficie y el abrasivo a emplear'},
     {id:'e8', ra:'RA3',ce:'CE3.h',texto:'Emplea guías de lijado en los procesos de igualación'},
     {id:'e9', ra:'RA3',ce:'CE3.i',texto:'Verifica que el acabado cumple los estándares de calidad establecidos'},
-    {id:'e10',ra:'RA3',ce:'CE3.j',texto:'Interpreta documentación técnica de distintos tipos de masilla y su aplicación'},
-    {id:'e_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'e10',ra:'RA3',ce:'CE3.j',texto:'Interpreta documentación técnica de distintos tipos de masilla y su aplicación'}
   ],
   aparejado:[
     {id:'a1', ra:'RA4',ce:'CE4.a',texto:'Selecciona el tipo de aparejo según su clasificación y las características de la superficie a aparejar'},
@@ -2967,8 +2928,7 @@ var CRITERIOS_EVALUACION={
     {id:'a11',ra:'RA4',ce:'CE4.k',texto:'Interpreta documentación técnica de distintos tipos de aparejos, su aplicación y características'},
     {id:'a12',ra:'RA4',ce:'CE4.l',texto:'Aplica aparejo sobre elementos de plástico con procesos y productos adecuados'},
     {id:'a13',ra:'RA4',ce:'CE4.m',texto:'Aplica aparejos ultravioletas seleccionando productos, ajustes de equipos y procesos adecuados'},
-    {id:'a14',ra:'RA4',ce:'CE4.n',texto:'Efectúa operaciones de control y puesta a punto de equipos'},
-    {id:'a_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'a14',ra:'RA4',ce:'CE4.n',texto:'Efectúa operaciones de control y puesta a punto de equipos'}
   ],
   enmascarado:[
     {id:'em1', ra:'RA5',ce:'CE5.a',texto:'Identifica las zonas que es preciso enmascarar'},
@@ -2980,20 +2940,17 @@ var CRITERIOS_EVALUACION={
     {id:'em7', ra:'RA5',ce:'CE5.g',texto:'Clasifica los residuos generados para su retirada selectiva'},
     {id:'em8', ra:'RA5',ce:'CE5.h',texto:'Verifica que el enmascarado cumple los requisitos de compatibilidad con los productos a aplicar'},
     {id:'em9', ra:'RA5',ce:'CE5.i',texto:'Verifica que el enmascarado proporciona la protección necesaria y con la calidad requerida'},
-    {id:'em10',ra:'RA5',ce:'CE5.j',texto:'Realiza el trabajo cumpliendo las normas de seguridad laboral y ambientales'},
-    {id:'em_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'em10',ra:'RA5',ce:'CE5.j',texto:'Realiza el trabajo cumpliendo las normas de seguridad laboral y ambientales'}
   ],
   limpieza:[
-    {id:'l1',ra:'RA3',ce:'CE3.a',texto:'Limpia y desengresa las superficies que es preciso tratar'},
-    {id:'l_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'l1',ra:'RA3',ce:'CE3.a',texto:'Limpia y desengresa las superficies que es preciso tratar'}
   ],
   pintado:[
     {id:'pi1',ra:'RA3',ce:'CE3.d',texto:'Identifica el código de color según documentación técnica del fabricante, placa del vehículo y carta de colores'},
     {id:'pi2',ra:'RA3',ce:'CE3.f',texto:'Selecciona los productos necesarios para la mezcla, base agua y disolvente'},
     {id:'pi3',ra:'RA3',ce:'CE3.g',texto:'Efectúa la mezcla con arreglo a proporciones y viscosidad, manejando balanza electrónica computerizada'},
     {id:'pi4',ra:'RA3',ce:'CE3.i',texto:'Activa y cataliza la pintura siguiendo especificaciones técnicas y logrando la viscosidad estipulada'},
-    {id:'pi5',ra:'RA3',ce:'CE3.j',texto:'Realiza el trabajo con seguridad, precisión, orden y limpieza'},
-    {id:'pi_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'pi5',ra:'RA3',ce:'CE3.j',texto:'Realiza el trabajo con seguridad, precisión, orden y limpieza'}
   ],
   barnizado:[
     {id:'b1',ra:'RA3',ce:'CE3.e',texto:'Interpreta la documentación técnica de fabricantes de pinturas identificando características de los productos'},
@@ -3001,8 +2958,7 @@ var CRITERIOS_EVALUACION={
     {id:'b3',ra:'RA3',ce:'CE3.g',texto:'Efectúa la mezcla con arreglo a proporciones y viscosidad, manejando balanza electrónica computerizada'},
     {id:'b4',ra:'RA3',ce:'CE3.h',texto:'Realiza pruebas de ajuste de color efectuando los ensayos necesarios en la cámara cromática'},
     {id:'b5',ra:'RA3',ce:'CE3.i',texto:'Activa y cataliza la pintura siguiendo especificaciones técnicas y logrando la viscosidad estipulada'},
-    {id:'b6',ra:'RA3',ce:'CE3.j',texto:'Realiza el trabajo con seguridad, precisión, orden y limpieza'},
-    {id:'b_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'b6',ra:'RA3',ce:'CE3.j',texto:'Realiza el trabajo con seguridad, precisión, orden y limpieza'}
   ],
   correccion:[
     {id:'c1',ra:'RA5',ce:'CE5.a',texto:'Localiza el defecto en la pintura y decide el proceso de reparación a efectuar'},
@@ -3011,8 +2967,7 @@ var CRITERIOS_EVALUACION={
     {id:'c4',ra:'RA5',ce:'CE5.d',texto:'Repara defectos originados por superficies mal preparadas'},
     {id:'c5',ra:'RA5',ce:'CE5.e',texto:'Repara defectos producidos por factores climáticos, mecánicos, industriales y biológicos'},
     {id:'c6',ra:'RA5',ce:'CE5.f',texto:'Pule y abrillanta la superficie reparada devolviéndole la calidad requerida'},
-    {id:'c7',ra:'RA5',ce:'CE5.g',texto:'Respeta las normas de utilización de los equipos, materiales e instalaciones'},
-    {id:'c_epi',ra:'Transv.',ce:'EPIs',texto:'🦺 Usa correctamente los EPIs durante toda la actividad',epi:true}
+    {id:'c7',ra:'RA5',ce:'CE5.g',texto:'Respeta las normas de utilización de los equipos, materiales e instalaciones'}
   ]
 };
 
@@ -4902,6 +4857,29 @@ async function actualizarJornada(jornadaId){
 
 
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// NOTA DE SEGURIDAD — 10 puntos menos 1 por incidencia
+// ══════════════════════════════════════════
+
+function notaSeguridad(numIncidencias){
+  var n = 10 - (numIncidencias || 0);
+  return n < 0 ? 0 : n;
+}
+
+function colorNotaSeg(nota){
+  if(nota >= 8) return '#22c55e';
+  if(nota >= 5) return '#f97316';
+  return '#ef4444';
+}
+
+function textoNotaSeg(nota, num){
+  if(num === 0)  return 'Sin incidencias — nota máxima';
+  if(nota >= 8)  return 'Buen uso de los EPIs';
+  if(nota >= 5)  return 'Atención — revisar conducta de seguridad';
+  return 'RIESGO PÉRDIDA FORMACIÓN DUAL';
+}
+
 // MÓDULO EPIs — Control de incidencias de seguridad
 // ══════════════════════════════════════════
 
@@ -5050,14 +5028,19 @@ async function renderEpisTab(alumnoId){
     contadores[inc.categoria] = (contadores[inc.categoria]||0)+1;
   });
   var total = incidencias.length;
-  var colorTotal = total===0?'var(--success)':total<3?'var(--warning)':'var(--danger)';
-  var textoEstado = total===0?'Sin incidencias ✅':total<3?'Atención ⚠️':'RIESGO PÉRDIDA DUAL 🚨';
+  var nota = notaSeguridad(total);
+  var colorTotal = colorNotaSeg(nota);
+  var textoEstado = textoNotaSeg(nota, total);
 
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:20px;">'+
-    '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:52px;font-weight:900;color:'+colorTotal+';line-height:1">'+total+'</div>'+
+  html += '<div style="background:var(--surface);border:2px solid '+colorTotal+';border-radius:var(--radius);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:20px;">'+
+    '<div style="text-align:center;min-width:96px">'+
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:56px;font-weight:900;color:'+colorTotal+';line-height:1">'+nota+'</div>'+
+      '<div style="font-size:10px;color:var(--text-dim);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Nota seguridad</div>'+
+    '</div>'+
+    '<div style="width:1px;align-self:stretch;background:var(--border)"></div>'+
     '<div>'+
       '<div style="font-family:\'Nunito\',sans-serif;font-weight:800;font-size:16px;color:'+colorTotal+'">'+textoEstado+'</div>'+
-      '<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Total de incidencias registradas este período</div>'+
+      '<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Parte de 10 puntos · se descuenta 1 punto por incidencia · <strong>'+total+'</strong> registrada'+(total!==1?'s':'')+'</div>'+
       (Object.keys(contadores).length>0?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">'+
         Object.keys(contadores).map(function(k){
           return '<span style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--warning)">'+
@@ -5146,14 +5129,22 @@ async function exportarEpisPDF(alumnoId){
     y=46;
     // RESUMEN
     var total=rows.length;
+    var notaSeg=notaSeguridad(total);
     var contadores={};
     rows.forEach(function(r){contadores[r.categoria]=(contadores[r.categoria]||0)+1;});
-    var colorE=total===0?[27,138,74]:total<3?[230,81,0]:[198,40,40];
-    var textoE=total===0?'SIN INCIDENCIAS':total<3?'ATENCION - Revisar conducta':'RIESGO PERDIDA FORMACION DUAL';
-    doc.setFillColor(...colorE); doc.roundedRect(margin,y,W-margin*2,13,2,2,'F');
-    doc.setTextColor(...BLANCO); doc.setFont('helvetica','bold'); doc.setFontSize(12);
-    doc.text(total+' incidencias   \u2014   '+textoE, W/2, y+8.5,{align:'center'});
-    y+=19;
+    var colorE=notaSeg>=8?[27,138,74]:notaSeg>=5?[230,81,0]:[198,40,40];
+    var textoE=notaSeg>=8?(total===0?'SIN INCIDENCIAS':'BUEN USO DE LOS EPIS'):notaSeg>=5?'ATENCION - Revisar conducta de seguridad':'RIESGO PERDIDA FORMACION DUAL';
+    doc.setFillColor(...colorE); doc.roundedRect(margin,y,W-margin*2,20,2,2,'F');
+    doc.setTextColor(...BLANCO);
+    doc.setFont('helvetica','bold'); doc.setFontSize(24);
+    doc.text(String(notaSeg), margin+16, y+14, {align:'center'});
+    doc.setFontSize(7);
+    doc.text('NOTA', margin+16, y+18.5, {align:'center'});
+    doc.setFontSize(12);
+    doc.text(textoE, W/2+8, y+9, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text('Parte de 10 puntos - se descuenta 1 punto por incidencia - '+total+' registrada'+(total!==1?'s':''), W/2+8, y+15, {align:'center'});
+    y+=26;
     if(Object.keys(contadores).length>0){
       doc.setFillColor(...GRIS); doc.rect(margin,y,W-margin*2,8,'F');
       doc.setDrawColor(...GRIS_B); doc.rect(margin,y,W-margin*2,8,'S');
@@ -5219,7 +5210,7 @@ async function exportarEpisPDF(alumnoId){
     doc.setTextColor(183,58,0); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
     doc.text('INFORMACION SOBRE LA FORMACION DUAL',margin+4,y+7);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...NEGRO);
-    var tLegal='El incumplimiento reiterado de las normas de seguridad puede suponer la perdida del derecho a realizar la\nFormacion en Centro de Trabajo (Dual), conforme al curriculo de Carroceria de Castilla-La Mancha.\nTres o mas incidencias de la misma tipologia, o conductas que pongan en riesgo la seguridad propia o ajena,\npodran ser consideradas causa de exclusion del programa Dual previo apercibimiento documentado.';
+    var tLegal='La nota de seguridad parte de 10 puntos y se descuenta 1 punto por cada incidencia registrada.\nEste criterio es de caracter transversal y su superacion es requisito para acceder a la Formacion en\nCentro de Trabajo (Dual), conforme al curriculo de Carroceria de Castilla-La Mancha. Una calificacion\ninferior a 5 puntos podra ser causa de exclusion del programa Dual previo apercibimiento documentado.';
     doc.text(tLegal,margin+4,y+13,{lineHeightFactor:1.5});
     y+=36;
     // FIRMA
@@ -5575,14 +5566,12 @@ function chipsIndicadores(alumnoId){
   if(!d) return '';
   var chips = [];
 
-  // EPIs — solo si hay alguna
-  if(d.epis > 0){
-    var cE = d.epis>=3 ? '#ef4444' : '#f97316';
-    var bE = d.epis>=3 ? 'rgba(239,68,68,.15)' : 'rgba(249,115,22,.15)';
-    var tE = d.epis>=3 ? 'Riesgo pérdida Dual: '+d.epis+' incidencias de seguridad'
-                       : d.epis+' incidencia'+(d.epis!==1?'s':'')+' de seguridad';
-    chips.push('<span class="ind-chip" title="'+tE+'" style="background:'+bE+';color:'+cE+';border-color:'+cE+'">🦺 '+d.epis+'</span>');
-  }
+  // Nota de seguridad — siempre visible
+  var nSeg = notaSeguridad(d.epis);
+  var cE = colorNotaSeg(nSeg);
+  var bE = nSeg>=8 ? 'rgba(34,197,94,.14)' : nSeg>=5 ? 'rgba(249,115,22,.15)' : 'rgba(239,68,68,.15)';
+  var tE = 'Nota de seguridad: '+nSeg+'/10 · '+d.epis+' incidencia'+(d.epis!==1?'s':'')+' registrada'+(d.epis!==1?'s':'');
+  chips.push('<span class="ind-chip" title="'+tE+'" style="background:'+bE+';color:'+cE+';border-color:'+cE+'">🦺 '+nSeg+'</span>');
 
   // Vehículos trabajados
   if(d.vehiculos > 0){
@@ -5609,8 +5598,9 @@ function chipsIndicadores(alumnoId){
 function puntoRiesgo(alumnoId){
   var d = indicadoresCache[alumnoId];
   if(!d) return '';
-  if(d.epis >= 3)      return '<span class="ind-punto" style="background:#ef4444" title="RIESGO: 3 o más incidencias de seguridad"></span>';
-  if(d.epis >= 1)      return '<span class="ind-punto" style="background:#f97316" title="Tiene incidencias de seguridad registradas"></span>';
+  var ns = notaSeguridad(d.epis);
+  if(ns < 5)           return '<span class="ind-punto" style="background:#ef4444" title="RIESGO: nota de seguridad '+ns+'/10"></span>';
+  if(ns < 8)           return '<span class="ind-punto" style="background:#f97316" title="Nota de seguridad '+ns+'/10"></span>';
   if(d.pendientes >= 3)return '<span class="ind-punto" style="background:#eab308" title="Varios procesos sin evaluar"></span>';
   return '';
 }
