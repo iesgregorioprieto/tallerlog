@@ -373,6 +373,12 @@ textarea.finput{resize:vertical;min-height:80px;}
   .epi-grid{grid-template-columns:repeat(3,1fr);}
 }
 
+/* ── INDICADORES SIDEBAR */
+.ind-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+.ind-chip{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:800;padding:1px 5px;border-radius:9px;border:1px solid;font-family:'Barlow Condensed',sans-serif;letter-spacing:.2px;white-space:nowrap;}
+.ind-punto{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-left:5px;box-shadow:0 0 0 2px var(--surface);}
+.alumno-nombre-wrap{display:flex;align-items:center;}
+
 /* ── RÚBRICAS */
 .rub-toggle{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-dim);font-size:9px;font-weight:700;padding:1px 6px;cursor:pointer;margin-left:6px;font-family:'Barlow Condensed',sans-serif;transition:all .15s;vertical-align:middle;}
 .rub-toggle:hover{border-color:var(--accent);color:var(--accent);}
@@ -3091,6 +3097,7 @@ async function initProfesor(){
     if(res.error) throw res.error;
     alumnosLista = res.data || [];
     renderSidebarCompleto();
+    cargarIndicadores();
   }catch(e){
     document.getElementById('sidebarAlumnos').innerHTML='<div class="sidebar-empty" style="color:var(--danger)">❌ Error al cargar alumnos</div>';
     console.error(e);
@@ -3109,8 +3116,10 @@ function renderSidebarCompleto(){
     return '<div class="alumno-item'+actv+'" onclick="abrirAlumno(\''+a.id+'\')" data-id="'+a.id+'">'+
       '<div class="alumno-avatar">'+ini.toUpperCase()+'</div>'+
       '<div class="alumno-info">'+
-      '<div class="alumno-nombre">'+a.nombre+' '+a.apellidos+'</div>'+
-      '<div class="alumno-meta">'+(a.grupo||'')+'</div></div></div>';
+      '<div class="alumno-nombre-wrap"><div class="alumno-nombre">'+a.nombre+' '+a.apellidos+'</div>'+puntoRiesgo(a.id)+'</div>'+
+      '<div class="alumno-meta">'+(a.grupo||'')+'</div>'+
+      chipsIndicadores(a.id)+
+      '</div></div>';
   }).join('');
 }
 
@@ -4973,6 +4982,7 @@ async function registrarIncidenciaEpi(alumnoId){
     }]).select();
     if(res.error) throw res.error;
     toast('✅ Incidencia registrada');
+    cargarIndicadores();
     // Limpiar formulario
     document.getElementById('epiFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('epiCategoria').value='';
@@ -4995,6 +5005,7 @@ async function eliminarIncidenciaEpi(id, alumnoId){
     var res = await sb.from('incidencias_epi').delete().eq('id',id);
     if(res.error) throw res.error;
     toast('🗑️ Incidencia eliminada');
+    cargarIndicadores();
     cambiarTab(alumnoId,'epis');
   }catch(e){
     toast('❌ Error: '+(e.message||e));
@@ -5491,6 +5502,117 @@ async function exportarVistaGrupoPDF(){
     toast('Error generando PDF: '+(e.message||e));
     console.error('exportarVistaGrupoPDF:',e);
   }
+}
+
+
+
+// ══════════════════════════════════════════
+// INDICADORES DE RIESGO EN EL SIDEBAR
+// ══════════════════════════════════════════
+
+var indicadoresCache = {}; // alumnoId -> {epis, vehiculos, jornadas, cerrados, pendientes}
+
+async function cargarIndicadores(){
+  try{
+    if(!alumnosLista.length) return;
+    var ids = alumnosLista.map(function(a){ return a.id; });
+
+    var resultados = await Promise.all([
+      sb.from('incidencias_epi').select('alumno_id').in('alumno_id', ids),
+      sb.from('vehiculos').select('alumno_id,id').in('alumno_id', ids),
+      sb.from('jornadas').select('alumno_id,proceso,vehiculo_id').in('alumno_id', ids),
+      sb.from('cierres').select('alumno_id,proceso,vehiculo_id,nota').in('alumno_id', ids)
+    ]);
+
+    var epis = resultados[0].error ? [] : (resultados[0].data||[]);
+    var vehs = resultados[1].error ? [] : (resultados[1].data||[]);
+    var jorn = resultados[2].error ? [] : (resultados[2].data||[]);
+    var cier = resultados[3].error ? [] : (resultados[3].data||[]);
+
+    var acc = {};
+    alumnosLista.forEach(function(a){
+      acc[a.id] = { epis:0, vehiculos:0, jornadas:0, cerrados:0, pendientes:0 };
+    });
+
+    epis.forEach(function(r){ if(acc[r.alumno_id]) acc[r.alumno_id].epis++; });
+    vehs.forEach(function(r){ if(acc[r.alumno_id]) acc[r.alumno_id].vehiculos++; });
+
+    // Procesos distintos trabajados (por vehiculo+proceso)
+    var procTrab = {};
+    jorn.forEach(function(r){
+      if(!acc[r.alumno_id]) return;
+      acc[r.alumno_id].jornadas++;
+      var k = r.alumno_id+'|'+(r.vehiculo_id||'sv')+'|'+r.proceso;
+      procTrab[k] = true;
+    });
+
+    // Procesos cerrados con nota
+    var procCerr = {};
+    cier.forEach(function(r){
+      if(!acc[r.alumno_id]) return;
+      if(r.nota===null || r.nota===undefined) return;
+      acc[r.alumno_id].cerrados++;
+      var k = r.alumno_id+'|'+(r.vehiculo_id||'sv')+'|'+r.proceso;
+      procCerr[k] = true;
+    });
+
+    // Pendientes = trabajados pero sin cerrar
+    Object.keys(procTrab).forEach(function(k){
+      if(procCerr[k]) return;
+      var aid = k.split('|')[0];
+      if(acc[aid]) acc[aid].pendientes++;
+    });
+
+    indicadoresCache = acc;
+    renderSidebarCompleto();
+  }catch(e){
+    console.error('cargarIndicadores:', e);
+  }
+}
+
+function chipsIndicadores(alumnoId){
+  var d = indicadoresCache[alumnoId];
+  if(!d) return '';
+  var chips = [];
+
+  // EPIs — solo si hay alguna
+  if(d.epis > 0){
+    var cE = d.epis>=3 ? '#ef4444' : '#f97316';
+    var bE = d.epis>=3 ? 'rgba(239,68,68,.15)' : 'rgba(249,115,22,.15)';
+    var tE = d.epis>=3 ? 'Riesgo pérdida Dual: '+d.epis+' incidencias de seguridad'
+                       : d.epis+' incidencia'+(d.epis!==1?'s':'')+' de seguridad';
+    chips.push('<span class="ind-chip" title="'+tE+'" style="background:'+bE+';color:'+cE+';border-color:'+cE+'">🦺 '+d.epis+'</span>');
+  }
+
+  // Vehículos trabajados
+  if(d.vehiculos > 0){
+    chips.push('<span class="ind-chip" title="'+d.vehiculos+' vehículo'+(d.vehiculos!==1?'s':'')+' trabajado'+(d.vehiculos!==1?'s':'')+'" style="background:rgba(21,101,192,.12);color:#1565c0;border-color:rgba(21,101,192,.4)">🚗 '+d.vehiculos+'</span>');
+  }
+
+  // Procesos: cerrados / pendientes
+  if(d.cerrados > 0){
+    chips.push('<span class="ind-chip" title="'+d.cerrados+' proceso'+(d.cerrados!==1?'s':'')+' evaluado'+(d.cerrados!==1?'s':'')+'" style="background:rgba(34,197,94,.14);color:#16a34a;border-color:rgba(34,197,94,.45)">✅ '+d.cerrados+'</span>');
+  }
+  if(d.pendientes > 0){
+    var cP = d.pendientes>=3 ? '#f97316' : 'var(--text-dim)';
+    var bP = d.pendientes>=3 ? 'rgba(249,115,22,.14)' : 'rgba(0,0,0,.05)';
+    chips.push('<span class="ind-chip" title="'+d.pendientes+' proceso'+(d.pendientes!==1?'s':'')+' trabajado'+(d.pendientes!==1?'s':'')+' sin evaluar" style="background:'+bP+';color:'+cP+';border-color:'+cP+'">⏳ '+d.pendientes+'</span>');
+  }
+
+  // Sin actividad
+  if(!chips.length){
+    return '<div class="ind-chips"><span class="ind-chip" title="Sin actividad registrada" style="background:rgba(0,0,0,.04);color:var(--text-light);border-color:var(--border)">Sin actividad</span></div>';
+  }
+  return '<div class="ind-chips">'+chips.join('')+'</div>';
+}
+
+function puntoRiesgo(alumnoId){
+  var d = indicadoresCache[alumnoId];
+  if(!d) return '';
+  if(d.epis >= 3)      return '<span class="ind-punto" style="background:#ef4444" title="RIESGO: 3 o más incidencias de seguridad"></span>';
+  if(d.epis >= 1)      return '<span class="ind-punto" style="background:#f97316" title="Tiene incidencias de seguridad registradas"></span>';
+  if(d.pendientes >= 3)return '<span class="ind-punto" style="background:#eab308" title="Varios procesos sin evaluar"></span>';
+  return '';
 }
 
 
