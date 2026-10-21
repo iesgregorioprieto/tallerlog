@@ -10,14 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Consulta mínima a Supabase para evitar pausa por inactividad
+        env:
+          # Misma URL y clave pública (publishable) que usa index.html
+          SUPABASE_URL: https://irrzgpkojgvtemhpltqj.supabase.co
+          SUPABASE_KEY: sb_publishable_uAwXoaSt-Ar1M7Jaj-bJiw_UUiW6Yxs
         run: |
           echo "Lanzando consulta a Supabase de TallerLog..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/alumnos?select=id&limit=1")
+          STATUS=$(curl -s -o respuesta.txt -w "%{http_code}" \
+            -H "apikey: $SUPABASE_KEY" \
+            "$SUPABASE_URL/rest/v1/alumnos?select=id&limit=1")
           echo "HTTP status: $STATUS"
-          if [ "$STATUS" = "200" ]; then
+          echo "Respuesta: $(head -c 300 respuesta.txt)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
             echo "OK - Supabase activo y respondiendo"
           else
             echo "AVISO - Respuesta inesperada: $STATUS"
