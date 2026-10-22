@@ -831,10 +831,16 @@ textarea.finput{resize:vertical;min-height:80px;}
             <div><div class="card-head-title">Foto del estado hoy</div><div class="card-head-sub">Documenta visualmente tu progreso</div></div>
           </div>
           <div class="card-body">
-            <div style="background:var(--surface2);border:2px dashed var(--border);border-radius:var(--radius-sm);height:90px;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text-dim);" onclick="triggerFoto()">
-              📷 Toca para hacer una foto
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:var(--surface2);border:2px dashed var(--border);border-radius:var(--radius-sm);height:90px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text-dim);text-align:center;padding:0 8px" onclick="triggerFoto()">
+                📷 Hacer foto
+              </div>
+              <div style="background:var(--surface2);border:2px dashed var(--border);border-radius:var(--radius-sm);height:90px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text-dim);text-align:center;padding:0 8px" onclick="triggerFotoGaleria()">
+                🖼️ Elegir de la galería
+              </div>
             </div>
             <input type="file" accept="image/*" capture="environment" id="fotoInput" style="display:none" onchange="handleFoto(this)">
+            <input type="file" accept="image/*" id="fotoInputGaleria" style="display:none" onchange="handleFoto(this)">
             <div id="fotoPreview" style="display:none;margin-top:10px"></div>
           </div>
         </div>
@@ -1172,6 +1178,7 @@ textarea.finput{resize:vertical;min-height:80px;}
       <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
         <button onclick="abrirVistaGrupo()" style="width:100%;background:var(--surface2);border:2px solid var(--accent);color:var(--accent);border-radius:var(--radius-sm);padding:10px 8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer">📊 Notas por criterio</button>
         <button onclick="abrirGestionProfes()" style="width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);padding:8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer">👨‍🏫 Gestión de profesores</button>
+        <button onclick="abrirGestionVehiculos()" style="width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);padding:8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer">🚗 Gestión de vehículos</button>
         <button id="btnInstalarProf" onclick="instalarApp()" style="display:none;width:100%;margin-top:6px;background:var(--accent-light);border:1px solid var(--accent);color:var(--accent);border-radius:var(--radius-sm);padding:8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer">📲 Instalar la app</button>
       </div>
       <div class="sidebar-section">👷 Alumnos del taller</div>
@@ -1437,46 +1444,83 @@ async function subirFotoJornada(jornadaId, base64){
 
 // Override guardarVehiculo para usar Supabase
 var _origGuardarVehiculo = typeof guardarVehiculo !== 'undefined' ? guardarVehiculo : null;
+var _guardandoVehiculo = false;
 async function guardarVehiculo(){
+  if(_guardandoVehiculo) return; // evita dobles pulsaciones
   var marca = document.getElementById('rv_marca').value.trim();
   var modelo = document.getElementById('rv_modelo').value.trim();
   var matricula = document.getElementById('rv_matricula').value.trim();
   if(!marca||!modelo||!matricula){ alert('Rellena al menos la marca, el modelo y la matrícula.'); return; }
+  var matUp = matricula.toUpperCase();
+  var matNorm = matUp.replace(/[\s-]/g,'');
+  // Si ya existe un vehículo con esa matrícula en la cuenta del alumno, no se vuelve a crear
+  var yaExiste = (misVehiculos||[]).some(function(v){ return String(v.matricula||'').toUpperCase().replace(/[\s-]/g,'')===matNorm; });
+  if(yaExiste){ alert('ℹ️ Ya tienes registrado un vehículo con la matrícula '+matUp+'. No se ha vuelto a guardar.'); return; }
+
+  _guardandoVehiculo = true;
+  var btnG = document.querySelector('button[onclick="guardarVehiculo()"]');
+  var txtG = btnG ? btnG.textContent : '';
+  if(btnG){ btnG.disabled = true; btnG.textContent = '⏳ Guardando...'; }
+
+  var vehGuardado = null;
   try{
-    var res = await sb.from('vehiculos').insert([{
-      alumno_id: currentUser.id,
-      marca: marca, modelo: modelo,
-      matricula: matricula.toUpperCase(),
-      anio: document.getElementById('rv_anio').value||'',
-      color: document.getElementById('rv_color').value||'',
-      km: document.getElementById('rv_km').value||'',
-      vin: (document.getElementById('rv_vin')||{value:''}).value||'',
-      tipo_carroceria: tipoCarroceria||'',
-      cliente: document.getElementById('rv_cliente').value||'',
-      telefono: document.getElementById('rv_telefono').value||'',
-      seguro: document.getElementById('rv_seguro').value||'',
-      expediente: document.getElementById('rv_expediente').value||'',
-      tipo_entrada: tipoEntrada||'',
-      combustible: fuelVehiculo||'',
-      condicion: JSON.parse(JSON.stringify(condVehiculo||{})),
-      estado_cristal: estadoCristal||'',
-      danos_carroceria: JSON.parse(JSON.stringify(danosVehiculo||{})),
-      observaciones: document.getElementById('rv_obs').value||'',
-      fecha_alta: new Date().toLocaleDateString('es-ES')
-    }]).select();
-    if(res.error) throw res.error;
-    var vId = res.data[0].id;
-    // Subir fotos de recepción
-    for(var ang in fotosVehiculo){
-      await subirFotoVehiculo(vId, ang, fotosVehiculo[ang]);
+    // 1) Alta del vehículo (única operación que puede crear el registro)
+    try{
+      var res = await sb.from('vehiculos').insert([{
+        alumno_id: currentUser.id,
+        marca: marca, modelo: modelo,
+        matricula: matUp,
+        anio: document.getElementById('rv_anio').value||'',
+        color: document.getElementById('rv_color').value||'',
+        km: document.getElementById('rv_km').value||'',
+        vin: (document.getElementById('rv_vin')||{value:''}).value||'',
+        tipo_carroceria: tipoCarroceria||'',
+        cliente: (document.getElementById('rv_cliente')||{value:''}).value||'',
+        telefono: (document.getElementById('rv_telefono')||{value:''}).value||'',
+        seguro: (document.getElementById('rv_seguro')||{value:''}).value||'',
+        expediente: (document.getElementById('rv_expediente')||{value:''}).value||'',
+        tipo_entrada: tipoEntrada||'',
+        combustible: fuelVehiculo||'',
+        condicion: JSON.parse(JSON.stringify(condVehiculo||{})),
+        estado_cristal: estadoCristal||'',
+        danos_carroceria: JSON.parse(JSON.stringify(danosVehiculo||{})),
+        observaciones: (document.getElementById('rv_obs')||{value:''}).value||'',
+        fecha_alta: new Date().toLocaleDateString('es-ES')
+      }]).select();
+      if(res.error) throw res.error;
+      vehGuardado = (res.data||[])[0] || null;
+    }catch(eIns){
+      // ¿Se guardó aunque la respuesta fallara (red lenta)? Lo comprobamos antes de dar error
+      try{
+        var chk = await sb.from('vehiculos').select('*').eq('alumno_id', currentUser.id).eq('matricula', matUp).order('created_at',{ascending:false}).limit(1);
+        if(!chk.error && chk.data && chk.data.length) vehGuardado = chk.data[0];
+      }catch(e2){}
+      if(!vehGuardado){
+        alert('❌ No se ha podido guardar el vehículo: '+(eIns.message||eIns)+'\n\nRevisa la conexión e inténtalo de nuevo.');
+        console.error(eIns);
+        return;
+      }
     }
-    misVehiculos.unshift(res.data[0]);
-    // Reset form
+
+    // 2) A partir de aquí el vehículo YA está guardado: ningún error posterior debe permitir repetir el alta
+    misVehiculos.unshift(vehGuardado);
+    var fotosPend = fotosVehiculo || {};
+    // Reset form y cierre del formulario
     fotosVehiculo={}; danosVehiculo={}; condVehiculo={}; tipoCarroceria=null; tipoEntrada=null; estadoCristal=null; fuelVehiculo=null;
-    toggleFormVehiculo();
-    renderVehiculosExistentes();
-    alert('✅ Vehículo guardado correctamente. Ya puedes registrar jornadas con él.');
-  }catch(e){ alert('❌ Error al guardar: '+e.message); console.error(e); }
+    ['rv_marca','rv_modelo','rv_matricula','rv_anio','rv_color','rv_km','rv_vin','rv_cliente','rv_telefono','rv_seguro','rv_expediente','rv_obs'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+    try{ var form=document.getElementById('formVehiculo'); if(form && form.style.display!=='none') toggleFormVehiculo(); }catch(eT){ console.error(eT); }
+    try{ renderVehiculosExistentes(); }catch(eR){ console.error(eR); }
+
+    // 3) Fotos de recepción (si alguna falla, el vehículo sigue guardado)
+    var fallosFoto = 0;
+    for(var ang in fotosPend){
+      try{ await subirFotoVehiculo(vehGuardado.id, ang, fotosPend[ang]); }catch(eF){ fallosFoto++; console.error(eF); }
+    }
+    alert('✅ Vehículo guardado correctamente. Ya puedes registrar jornadas con él.'+(fallosFoto?'\n\n⚠️ Alguna foto no se pudo subir.':''));
+  } finally {
+    _guardandoVehiculo = false;
+    if(btnG){ btnG.disabled = false; btnG.textContent = txtG || '✅ Guardar ficha del vehículo'; }
+  }
 }
 
 async function subirFotoVehiculo(vId, angulo, base64){
@@ -2282,6 +2326,7 @@ function toggleTonoAparejo(k){
 // FOTOS JORNADA
 // ════════════════════════════════════════════
 function triggerFoto(){ document.getElementById('fotoInput').click(); }
+function triggerFotoGaleria(){ document.getElementById('fotoInputGaleria').click(); }
 function handleFoto(input){
   if(!input.files||!input.files[0]) return;
   var reader=new FileReader();
@@ -2294,7 +2339,7 @@ function handleFoto(input){
   };
   reader.readAsDataURL(input.files[0]);
 }
-function borrarFoto(){ fotoJornada=null; document.getElementById('fotoPreview').style.display='none'; document.getElementById('fotoInput').value=''; }
+function borrarFoto(){ fotoJornada=null; document.getElementById('fotoPreview').style.display='none'; document.getElementById('fotoInput').value=''; var g=document.getElementById('fotoInputGaleria'); if(g) g.value=''; }
 
 // ════════════════════════════════════════════
 // MAPA DE DAÑOS — checkboxes sobre diagrama
@@ -4150,6 +4195,7 @@ async function cargarListaGestion(){
           '<button onclick="toggleActivoAlumno(\''+a.id+'\','+a.activo+')" '+
             'style="padding:4px 10px;border-radius:6px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;'+
             (a.activo?'background:var(--success-bg);border-color:var(--success);color:var(--success)':'background:var(--danger-bg);border-color:var(--danger);color:var(--danger)')+'">'+(a.activo?'✅ Activo':'❌ Inactivo')+'</button>'+
+          '<button onclick="eliminarAlumno(\''+a.id+'\',\''+(String(a.nombre||'')+' '+String(a.apellidos||'')).replace(/['"\\]/g,'')+'\')" style="padding:4px 9px;border-radius:6px;border:1px solid var(--danger);background:var(--danger-bg);color:var(--danger);font-size:11px;font-weight:700;cursor:pointer" title="Eliminar alumno">🗑️</button>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -4166,6 +4212,141 @@ async function toggleActivoAlumno(alumnoId, activo){
     cargarListaGestion();
     initProfesor();
   }catch(e){ toast('❌ Error: '+e.message); }
+}
+
+async function eliminarAlumno(alumnoId, nombre){
+  if(!alumnoId) return;
+  if(!confirm('¿Eliminar al alumno '+nombre+'?\n\nSe borrará su cuenta junto con sus vehículos, jornadas, fotos, entregas e incidencias.\n\nEsta acción NO se puede deshacer.\n\nSi solo quieres quitarle el acceso, usa el botón Activo/Inactivo.')) return;
+  try{
+    toast('⏳ Eliminando alumno...');
+    var errores = [];
+    // Hijas primero, siempre filtrando por este alumno
+    try{ var r1 = await sb.from('fotos').delete().eq('alumno_id', alumnoId); if(r1.error) errores.push('fotos: '+r1.error.message); }catch(e){ errores.push('fotos: '+e.message); }
+    try{ await sb.from('evaluaciones').delete().eq('alumno_id', alumnoId); }catch(e){ /* tabla puede no existir */ }
+    try{ var r2 = await sb.from('incidencias_epi').delete().eq('alumno_id', alumnoId); if(r2.error) errores.push('incidencias: '+r2.error.message); }catch(e){ errores.push('incidencias: '+e.message); }
+    var r3 = await sb.from('cierres').delete().eq('alumno_id', alumnoId); if(r3.error) errores.push('cierres: '+r3.error.message);
+    var r4 = await sb.from('jornadas').delete().eq('alumno_id', alumnoId); if(r4.error) errores.push('jornadas: '+r4.error.message);
+    var r5 = await sb.from('vehiculos').delete().eq('alumno_id', alumnoId); if(r5.error) errores.push('vehículos: '+r5.error.message);
+    var r6 = await sb.from('alumnos').delete().eq('id', alumnoId).eq('rol','alumno');
+    if(r6.error) errores.push('alumno: '+r6.error.message);
+    if(errores.length){
+      alert('⚠️ No se ha podido eliminar todo:\n\n'+errores.join('\n'));
+    } else {
+      toast('🗑️ Alumno eliminado');
+    }
+    cargarListaGestion();
+    try{ initProfesor(); }catch(e){}
+  }catch(e){ toast('❌ Error: '+(e.message||e)); console.error('eliminarAlumno:', e); }
+}
+
+// ══════════════════════════════════════════
+// GESTIÓN DE VEHÍCULOS (PROFESOR)
+// ══════════════════════════════════════════
+var gvVehiculos = [], gvAlumnos = {}, gvJornadasPorVeh = {};
+
+function abrirGestionVehiculos(){
+  var mainDiv = document.getElementById('mainContent');
+  mainDiv.innerHTML = '<div style="max-width:700px">'+
+    '<div style="font-family:\'Nunito\',sans-serif;font-weight:900;font-size:22px;color:var(--accent);margin-bottom:20px">🚗 Gestión de vehículos</div>'+
+    '<div class="card">'+
+      '<div class="card-head"><span class="card-head-ico">🚗</span><div>'+
+        '<div class="card-head-title">Vehículos registrados por los alumnos</div>'+
+        '<div class="card-head-sub">Las matrículas repetidas en un mismo alumno se marcan como posible duplicado</div>'+
+      '</div></div>'+
+      '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'+
+        '<input class="finput" id="gv_buscar" placeholder="🔎 Buscar por matrícula, marca, modelo o alumno" oninput="renderListaVehiculosProf()">'+
+      '</div>'+
+      '<div id="gv_lista" style="padding:8px 0"><div style="padding:14px;text-align:center;color:var(--text-dim)">⏳ Cargando...</div></div>'+
+    '</div>'+
+  '</div>';
+  cargarListaVehiculosProf();
+}
+
+async function cargarListaVehiculosProf(){
+  var wrap = document.getElementById('gv_lista');
+  if(!wrap) return;
+  try{
+    var rs = await Promise.all([
+      sb.from('vehiculos').select('*').order('created_at',{ascending:false}),
+      sb.from('alumnos').select('id,nombre,apellidos,grupo'),
+      sb.from('jornadas').select('id,vehiculo_id')
+    ]);
+    if(rs[0].error) throw rs[0].error;
+    gvVehiculos = rs[0].data||[];
+    gvAlumnos = {};
+    (rs[1].data||[]).forEach(function(a){ gvAlumnos[a.id]=a; });
+    gvJornadasPorVeh = {};
+    (rs[2].data||[]).forEach(function(j){ if(j.vehiculo_id) gvJornadasPorVeh[j.vehiculo_id]=(gvJornadasPorVeh[j.vehiculo_id]||0)+1; });
+    renderListaVehiculosProf();
+  }catch(e){
+    wrap.innerHTML='<div style="padding:14px;color:var(--danger)">❌ Error: '+(e.message||e)+'</div>';
+  }
+}
+
+function renderListaVehiculosProf(){
+  var wrap = document.getElementById('gv_lista');
+  if(!wrap) return;
+  var q = ((document.getElementById('gv_buscar')||{}).value||'').toLowerCase().trim();
+  var cuenta = {};
+  gvVehiculos.forEach(function(v){ var k=v.alumno_id+'|'+String(v.matricula||'').toUpperCase().replace(/[\s-]/g,''); cuenta[k]=(cuenta[k]||0)+1; });
+  var lista = gvVehiculos.filter(function(v){
+    if(!q) return true;
+    var a = gvAlumnos[v.alumno_id]||{};
+    return [v.matricula,v.marca,v.modelo,a.nombre,a.apellidos].join(' ').toLowerCase().indexOf(q)>=0;
+  });
+  if(!lista.length){
+    wrap.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-dim)">'+(gvVehiculos.length?'Ningún vehículo coincide con la búsqueda.':'No hay vehículos registrados todavía.')+'</div>';
+    return;
+  }
+  wrap.innerHTML = '<div style="padding:4px 16px 8px;font-size:11px;color:var(--text-dim)">'+lista.length+' vehículo'+(lista.length!==1?'s':'')+'</div>'+
+    lista.map(function(v){
+      var a = gvAlumnos[v.alumno_id];
+      var alumnoTxt = a ? ((a.nombre||'')+' '+(a.apellidos||'')).trim()+(a.grupo?' · '+a.grupo:'') : 'Alumno desconocido';
+      var dup = cuenta[v.alumno_id+'|'+String(v.matricula||'').toUpperCase().replace(/[\s-]/g,'')]>1;
+      var nJ = gvJornadasPorVeh[v.id]||0;
+      var fecha = v.fecha_alta || (v.created_at?new Date(v.created_at).toLocaleString('es-ES'):'');
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">'+
+        '<div style="font-size:22px;flex-shrink:0">🚗</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-family:\'Nunito\',sans-serif;font-weight:800;font-size:13px">'+(v.marca||'')+' '+(v.modelo||'')+
+            ' <span style="font-family:monospace;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 6px">'+(v.matricula||'—')+'</span>'+
+            (dup?' <span style="font-size:10px;font-weight:800;color:#f97316;border:1px solid #f97316;border-radius:5px;padding:1px 5px">⚠️ Posible duplicado</span>':'')+
+          '</div>'+
+          '<div style="font-size:11px;color:var(--text-dim)">👤 '+alumnoTxt+'</div>'+
+          '<div style="font-size:11px;color:var(--text-dim)">📅 '+fecha+' · 📋 '+nJ+' jornada'+(nJ!==1?'s':'')+'</div>'+
+        '</div>'+
+        '<button onclick="eliminarVehiculoProf(\''+v.id+'\')" style="padding:4px 9px;border-radius:6px;border:1px solid var(--danger);background:var(--danger-bg);color:var(--danger);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0" title="Eliminar vehículo">🗑️</button>'+
+      '</div>';
+    }).join('');
+}
+
+async function eliminarVehiculoProf(vid){
+  var v = gvVehiculos.find(function(x){ return x.id===vid; });
+  if(!v) return;
+  var a = gvAlumnos[v.alumno_id]||{};
+  var nom = ((v.marca||'')+' '+(v.modelo||'')+' ('+(v.matricula||'')+')').trim();
+  var alum = ((a.nombre||'')+' '+(a.apellidos||'')).trim()||'alumno desconocido';
+  var nJ = gvJornadasPorVeh[vid]||0;
+  if(!confirm('¿Eliminar el vehículo '+nom+' de '+alum+'?\n\nEsta acción NO se puede deshacer.')) return;
+  if(nJ>0 && !confirm('⚠️ ATENCIÓN: este vehículo tiene '+nJ+' jornada'+(nJ!==1?'s':'')+' registrada'+(nJ!==1?'s':'')+'.\n\nSe borrarán también esas jornadas, sus fotos y las entregas/evaluaciones de este vehículo.\n\n¿Seguro que quieres continuar?')) return;
+  try{
+    var errores = [];
+    if(nJ>0){
+      var rj = await sb.from('jornadas').select('id').eq('vehiculo_id', vid);
+      var jIds = (rj.data||[]).map(function(j){ return j.id; });
+      if(jIds.length){
+        var rf = await sb.from('fotos').delete().in('jornada_id', jIds); if(rf.error) errores.push('fotos jornadas: '+rf.error.message);
+      }
+      var rjd = await sb.from('jornadas').delete().eq('vehiculo_id', vid); if(rjd.error) errores.push('jornadas: '+rjd.error.message);
+    }
+    var rc = await sb.from('cierres').delete().eq('vehiculo_id', vid); if(rc.error) errores.push('cierres: '+rc.error.message);
+    var rfv = await sb.from('fotos').delete().eq('vehiculo_id', vid); if(rfv.error) errores.push('fotos: '+rfv.error.message);
+    var rv = await sb.from('vehiculos').delete().eq('id', vid); if(rv.error) errores.push('vehículo: '+rv.error.message);
+    if(errores.length) alert('⚠️ No se ha podido eliminar todo:\n\n'+errores.join('\n'));
+    else toast('🗑️ Vehículo eliminado');
+    cargarListaVehiculosProf();
+    try{ cargarIndicadores(); }catch(e){}
+  }catch(e){ toast('❌ Error: '+(e.message||e)); console.error('eliminarVehiculoProf:', e); }
 }
 
 // Cargar lista automáticamente cuando se abre gestión
