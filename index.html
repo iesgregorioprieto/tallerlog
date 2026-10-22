@@ -1384,7 +1384,17 @@ function lS(k){
 function sS(k,v){ /* No-op: data goes to Supabase */ }
 
 // Override guardarJornada para usar Supabase
+var _guardandoJornada = false;
+var _jornadaPendienteId = null; // id fijo por jornada: si se reintenta tras un corte, no se crea otra
+function _nuevoUUID(){
+  try{ if(window.crypto && crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){ var r=Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); });
+}
 async function guardarJornada(){
+  if(_guardandoJornada) return; // evita dobles pulsaciones
+  _guardandoJornada = true;
+  if(!_jornadaPendienteId) _jornadaPendienteId = _nuevoUUID();
+  var jIdIntento = _jornadaPendienteId;
   var btn = document.getElementById('btnGuardar');
   btn.disabled=true; btn.textContent='⏳ Guardando...';
   var boolKeys = Object.keys(checkState).filter(function(k){ return typeof checkState[k]==='boolean'; });
@@ -1392,7 +1402,10 @@ async function guardarJornada(){
   var p = PROCESOS[selProceso]||{icon:'🔧',name:selProceso};
   var piezasTexto = Object.keys(selPiezas).join(' | ');
   try{
+    var jornadaRow = null;
+    try{
     var res = await sb.from('jornadas').insert([{
+      id: jIdIntento,
       alumno_id: currentUser.id,
       vehiculo_id: selVehiculo ? selVehiculo.id : null,
       fecha: new Date().toLocaleDateString('es-ES'),
@@ -1406,10 +1419,40 @@ async function guardarJornada(){
       check_total: boolKeys.length,
       observaciones: document.getElementById('obsInput').value || ''
     }]).select();
+    if(res.error && /uuid|22P02|invalid input syntax/i.test(String(res.error.code||'')+' '+String(res.error.message||''))){
+      // Red de seguridad: si la BD no acepta el id generado, se guarda como antes (sin id propio)
+      jIdIntento = null; _jornadaPendienteId = null;
+      res = await sb.from('jornadas').insert([{
+        alumno_id: currentUser.id,
+        vehiculo_id: selVehiculo ? selVehiculo.id : null,
+        fecha: new Date().toLocaleDateString('es-ES'),
+        proceso: selProceso,
+        horas: selHoras.slice(),
+        piezas_texto: piezasTexto,
+        piezas_detalle: Object.keys(selPiezas).map(function(p){ return {nombre:p}; }),
+        checklist_taller: JSON.parse(JSON.stringify(checkState)),
+        epi: JSON.parse(JSON.stringify(epiState)),
+        check_done: doneCheck,
+        check_total: boolKeys.length,
+        observaciones: document.getElementById('obsInput').value || ''
+      }]).select();
+    }
     if(res.error) throw res.error;
-    var jornadaId = res.data[0].id;
-    if(fotoJornada) await subirFotoJornada(jornadaId, fotoJornada);
-    misJornadas.unshift(res.data[0]);
+    jornadaRow = (res.data||[])[0] || null;
+    }catch(eIns){
+      // Corte de conexión: ¿llegó a guardarse? Se comprueba por su id antes de dar error
+      try{
+        if(!jIdIntento) throw eIns;
+        var chk = await sb.from('jornadas').select('*').eq('id', jIdIntento).limit(1);
+        if(!chk.error && chk.data && chk.data.length) jornadaRow = chk.data[0];
+      }catch(e2){}
+      if(!jornadaRow) throw eIns;
+    }
+    if(!jornadaRow) throw new Error('No se recibió confirmación del guardado');
+    _jornadaPendienteId = null; // guardada: la próxima jornada tendrá un id nuevo
+    var jornadaId = jornadaRow.id;
+    if(!misJornadas.some(function(j){ return j.id===jornadaId; })) misJornadas.unshift(jornadaRow);
+    try{ if(fotoJornada) await subirFotoJornada(jornadaId, fotoJornada); }catch(eF){ console.error(eF); }
     // Reset
     selPiezas={}; selProceso=null; selHoras=[];
     checkState={}; epiState={}; ordenState={};
@@ -1422,9 +1465,11 @@ async function guardarJornada(){
     irPaso(4);
   }catch(e){
     var msg = e.message || (e.details) || JSON.stringify(e);
-    toast('❌ Error al guardar: '+msg);
+    toast('❌ No se ha podido guardar: '+msg+'. Revisa la conexión y vuelve a pulsar Guardar.');
     btn.disabled=false; btn.textContent='✅ Guardar jornada';
     console.error('guardarJornada error:', e);
+  } finally {
+    _guardandoJornada = false;
   }
 }
 
