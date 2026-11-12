@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<title>Videoteca Carrocería · IES Gregorio Prieto</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📹</text></svg>">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --azul:#1a6dbf; --azul-osc:#0f4a8a; --fondo:#eef1f5; --card:#ffffff;
+    --texto:#1d2733; --suave:#5b6b7c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--texto);font-family:'Barlow',system-ui,sans-serif}
+  header{background:var(--azul-osc);color:#fff;padding:14px 16px 12px;position:sticky;top:0;z-index:5;
+         box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  .fila{display:flex;align-items:center;gap:10px}
+  header h1{margin:0;overflow-wrap:anywhere;font-family:'Barlow Condensed';font-weight:700;font-size:26px;letter-spacing:.5px;line-height:1.1}
+  header p{margin:2px 0 10px;font-size:13px;opacity:.85}
+  #volver{display:none;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:40px;height:40px;
+          border-radius:10px;cursor:pointer;flex:0 0 auto}
+  #buscar{width:100%;font-family:inherit;font-size:15px;padding:10px 12px;border:none;border-radius:10px}
+  main{max-width:1100px;margin:0 auto;padding:16px}
+
+  /* GRUPOS */
+  .grupos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+  .grupo{min-width:0}
+  .grupo{position:relative;border:none;border-radius:16px;padding:18px 12px 14px;color:#fff;cursor:pointer;text-align:center;
+         font-family:inherit;box-shadow:0 3px 10px rgba(0,0,0,.12);transition:transform .15s,box-shadow .15s;
+         display:flex;flex-direction:column;align-items:center;gap:8px;min-height:150px;justify-content:center}
+  .grupo:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0,.18)}
+  .grupo .ico{font-size:52px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+  .grupo .nom{font-family:'Barlow Condensed';font-weight:700;font-size:20px;line-height:1.1;text-transform:uppercase;overflow-wrap:anywhere}
+  .grupo .num{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.95);color:var(--texto);font-weight:700;
+              font-size:13px;min-width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;padding:0 7px}
+  .grupo .paso{position:absolute;top:8px;left:10px;font-family:'Barlow Condensed';font-weight:700;font-size:15px;opacity:.75}
+  .grupo.vacio{filter:grayscale(.85);opacity:.45;cursor:default}
+  .grupo.vacio:hover{transform:none;box-shadow:0 3px 10px rgba(0,0,0,.12)}
+
+  /* VÍDEOS */
+  .titgrupo{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+  .titgrupo .ico{font-size:40px}
+  .titgrupo h2{margin:0;font-family:'Barlow Condensed';font-size:26px;color:var(--azul-osc);text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+  .card{background:var(--card);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);
+        transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column}
+  .card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.14)}
+  .thumb{position:relative;aspect-ratio:9/12;background:#2b3846;display:flex;align-items:center;justify-content:center}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .play{position:absolute;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.92);
+               display:flex;align-items:center;justify-content:center}
+  .thumb .play:after{content:'';border-left:15px solid var(--azul-osc);border-top:9px solid transparent;
+                     border-bottom:9px solid transparent;margin-left:4px}
+  .badge{position:absolute;top:8px;left:8px;background:var(--azul);color:#fff;font-family:'Barlow Condensed';
+         font-weight:600;font-size:13px;padding:2px 8px;border-radius:4px}
+  .info{padding:8px 10px 10px}
+  .info b{display:block;font-size:14px;line-height:1.25}
+  .info span{font-size:12px;color:var(--suave)}
+  .aviso{text-align:center;color:var(--suave);padding:40px 10px}
+
+  /* MODAL */
+  .modal{position:fixed;inset:0;background:rgba(10,20,30,.8);display:none;align-items:center;justify-content:center;padding:12px;z-index:10}
+  .modal.abierto{display:flex}
+  .caja{background:#fff;border-radius:14px;max-width:900px;width:100%;max-height:94vh;overflow:auto;
+        display:flex;gap:16px;padding:14px;position:relative}
+  .video{flex:0 0 auto;width:min(340px,100%);aspect-ratio:9/16;background:#000;border-radius:10px;overflow:hidden}
+  .video iframe{width:100%;height:100%;border:0}
+  .video img{width:100%;height:100%;object-fit:contain;background:#fff}
+  .detalle{flex:1;min-width:0}
+  .detalle h3{font-family:'Barlow Condensed';font-size:24px;margin:4px 34px 6px 0;color:var(--azul-osc)}
+  .etq{display:inline-block;background:#e3eefa;color:var(--azul-osc);font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px;margin:0 4px 4px 0}
+  .detalle h4{font-family:'Barlow Condensed';font-size:17px;margin:14px 0 4px;color:var(--azul)}
+  .detalle ul{margin:0;padding-left:20px}
+  .pregunta{background:#fff7e0;border-left:4px solid #e0a800;padding:8px 10px;border-radius:4px}
+  .btnresp{margin-top:10px;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:9px 16px;
+           font-family:'Barlow Condensed';font-weight:700;font-size:17px;letter-spacing:.4px;cursor:pointer}
+  .btnresp:hover{background:var(--azul-osc)}
+  .respuesta{display:none;margin-top:10px;background:#e6f6ec;border-left:4px solid #1e9e57;padding:8px 10px;border-radius:4px}
+  .respuesta.ver{display:block}
+  .fuente{font-size:12px;color:var(--suave);margin-top:14px}
+  .fuente a{color:var(--azul)}
+  .cerrar{position:absolute;top:6px;right:10px;background:none;border:none;font-size:30px;cursor:pointer;color:var(--suave)}
+  @media (max-width:640px){
+    .caja{flex-direction:column;align-items:center} .detalle{width:100%}
+    .grupos{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .grupo .nom{font-size:17px} .grupo{min-height:130px} .grupo .ico{font-size:44px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="fila">
+    <button id="volver" onclick="inicio()" aria-label="Volver">←</button>
+    <div>
+      <h1 id="titulo">📹 VIDEOTECA CARROCERÍA</h1>
+      <p id="sub">Cargando…</p>
+    </div>
+  </div>
+  <input id="buscar" type="search" placeholder="Buscar: lijado, aparejo, catalizador, perlado…">
+</header>
+
+<main id="lista"></main>
+
+<div class="modal" id="modal" onclick="if(event.target===this)cerrar()">
+  <div class="caja">
+    <button class="cerrar" onclick="cerrar()" aria-label="Cerrar">×</button>
+    <div class="video" id="mVideo"></div>
+    <div class="detalle" id="mDetalle"></div>
+  </div>
+</div>
+
+<script>
+  /* Grupos en el orden del proceso de taller.
+     Un vídeo va al primer grupo cuyo nombre coincide con su "Proceso",
+     o si no, al primero cuyas palabras clave aparecen en Proceso / título / puntos clave. */
+  const GRUPOS = [
+    { id:'seg',  nom:'Seguridad y EPIs',        ico:'🦺', col:'#c0392b', kw:['seguridad','epi','mascarilla','guante','proteccion','respirador'] },
+    { id:'tip',  nom:'Tipos de pintura',        ico:'🥫', col:'#7d3c98', kw:['tipos de pintura','1k','2k','solido','metalico','metalizad','perlado - que','sintetic'] },
+    { id:'lij',  nom:'Lijado y preparación',    ico:'🧽', col:'#a0522d', kw:['lijad','lija','abrasivo','masilla','preparacion de superficie','grano'] },
+    { id:'des',  nom:'Desengrasado y limpieza', ico:'🧴', col:'#16a085', kw:['desengras','limpieza','contamina','silicona'] },
+    { id:'enm',  nom:'Enmascarado',             ico:'🧻', col:'#d68910', kw:['enmascar','cinta','papel de enmascarar','burlete'] },
+    { id:'apa',  nom:'Aparejos y fondos',       ico:'🧱', col:'#5d6d7e', kw:['aparej','imprimacion','fondo de relleno','primer','epoxi'] },
+    { id:'mez',  nom:'Mezcla y catalizado',     ico:'🧪', col:'#1a6dbf', kw:['cataliz','mezcla','proporci','diluci','reductor','endurecedor'] },
+    { id:'col',  nom:'Color e igualación',      ico:'🎨', col:'#e84393', kw:['color','tono','igualac','probeta','formula'] },
+    { id:'pis',  nom:'Pistola y aplicación',    ico:'💨', col:'#0f4a8a', kw:['pistola','aerografo','aplicacion','pulveriz','abanico','pasada'] },
+    { id:'cap',  nom:'Bicapa y tricapa',        ico:'🥞', col:'#2e86c1', kw:['bicapa','tricapa','monocapa'] },
+    { id:'sec',  nom:'Secado',                  ico:'🌡️', col:'#e67e22', kw:['secado','infrarroj','horno','uv','evaporaci'] },
+    { id:'pul',  nom:'Defectos y pulido',       ico:'✨', col:'#117a65', kw:['defecto','pulido','pulir','descolgado','piel de naranja','crater','abrillant'] }
+  ];
+  const OTROS = { id:'otr', nom:'Otros', ico:'📂', col:'#7f8c8d', kw:[] };
+
+  let VIDEOS = [], grupoActual = null;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  function grupoDe(v) {
+    const p = norm(v.proceso);
+    let g = GRUPOS.find(g => norm(g.nom) === p);
+    if (g) return g.id;
+    // primero se mira el Proceso, que es lo más fiable; luego título y puntos clave
+    for (const texto of [p, norm(v.titulo), norm(v.puntos)]) {
+      g = GRUPOS.find(g => g.kw.some(k => texto.includes(norm(k))));
+      if (g) return g.id;
+    }
+    return OTROS.id;
+  }
+
+  /* Los datos salen de la hoja "Videoteca Carrocería IES" a través de su aplicación web de Apps Script.
+     Se piden sin cookies (credentials:'omit') para que no falle aunque el navegador tenga varias cuentas de Google. */
+  const API = 'https://script.google.com/macros/s/AKfycbxQaHUdjUedXZZgET6A0Wb7EpszluVlkTvQ8-OXjl9e-tLCgia7gMBrTIVdw2mVs3R5/exec?formato=json';
+
+  fetch(API, { credentials: 'omit' })
+    .then(r => r.json())
+    .then(datos => {
+      VIDEOS = datos.map(v => Object.assign(v, { grupo: grupoDe(v) }));
+      $('buscar').addEventListener('input', pintar);
+      inicio();
+    })
+    .catch(e => { $('sub').textContent = 'No se han podido cargar los vídeos. Recarga la página.'; console.error(e); });
+
+  function inicio() {
+    grupoActual = null; $('buscar').value = '';
+    pintar(); window.scrollTo(0, 0);
+  }
+  function abrirGrupo(id) {
+    grupoActual = id; $('buscar').value = '';
+    pintar(); window.scrollTo(0, 0);
+  }
+
+  function pintar() {
+    const q = norm($('buscar').value);
+    const todos = GRUPOS.concat(VIDEOS.some(v => v.grupo === 'otr') ? [OTROS] : []);
+
+    if (q) {               // búsqueda: vídeos de todos los grupos
+      const res = VIDEOS.filter(v => norm([v.titulo, v.proceso, v.puntos, v.ra, 'ce ' + v.ce, v.autor].join(' ')).includes(q));
+      cabecera('🔎 RESULTADOS', res.length + (res.length === 1 ? ' vídeo' : ' vídeos'), true);
+      $('lista').innerHTML = res.length ? tarjetas(res) : '<div class="aviso">No hay vídeos con esa búsqueda.</div>';
+      return;
+    }
+
+    if (!grupoActual) {    // pantalla de inicio: grupos
+      cabecera('📹 VIDEOTECA CARROCERÍA', VIDEOS.length + ' vídeos · elige un tema', false);
+      $('lista').innerHTML = '<div class="grupos">' + todos.map((g, i) => {
+        const n = VIDEOS.filter(v => v.grupo === g.id).length;
+        return `<button class="grupo ${n ? '' : 'vacio'}" style="background:${g.col}" ${n ? `onclick="abrirGrupo('${g.id}')"` : 'disabled'}>
+                  ${g.id === 'otr' ? '' : `<span class="paso">${i + 1}</span>`}
+                  <span class="num">${n}</span>
+                  <span class="ico">${g.ico}</span>
+                  <span class="nom">${esc(g.nom)}</span>
+                </button>`;
+      }).join('') + '</div>';
+      return;
+    }
+
+    const g = todos.find(x => x.id === grupoActual);   // dentro de un grupo
+    const lista = VIDEOS.filter(v => v.grupo === grupoActual)
+      .sort((a, b) => (a.ra + a.ce).localeCompare(b.ra + b.ce) || a.titulo.localeCompare(b.titulo));
+    cabecera(g.ico + ' ' + g.nom.toUpperCase(), lista.length + (lista.length === 1 ? ' vídeo' : ' vídeos'), true);
+    $('lista').innerHTML = tarjetas(lista);
+  }
+
+  function cabecera(t, s, conVolver) {
+    $('titulo').textContent = t; $('sub').textContent = s;
+    $('volver').style.display = conVolver ? 'block' : 'none';
+  }
+
+  function tarjetas(lista) {
+    return '<div class="grid">' + lista.map(v => `
+      <div class="card" onclick="abrir('${v.id}')">
+        <div class="thumb">
+          <img src="https://drive.google.com/thumbnail?id=${v.id}&sz=w400" alt="" loading="lazy" onerror="this.remove()">
+          ${v.tipo === 'imagen' ? '' : '<div class="play"></div>'}
+          ${v.ce ? `<span class="badge">${esc(v.ra)} · CE ${esc(v.ce)}</span>` : ''}
+        </div>
+        <div class="info"><b>${esc(v.titulo)}</b><span>${v.tipo === 'imagen' ? '🖼️ Imagen' : '▶ Vídeo'}</span></div>
+      </div>`).join('') + '</div>';
+  }
+
+  function abrir(id) {
+    const v = VIDEOS.find(x => x.id === id); if (!v) return;
+    $('mVideo').innerHTML = v.tipo === 'imagen'
+      ? `<img src="https://drive.google.com/thumbnail?id=${id}&sz=w1200" alt="">`
+      : `<iframe src="https://drive.google.com/file/d/${id}/preview" allow="autoplay" allowfullscreen></iframe>`;
+    const puntos = String(v.puntos).split(/\n|;/).map(s => s.trim()).filter(Boolean);
+    $('mDetalle').innerHTML = `
+      <h3>${esc(v.titulo)}</h3>
+      ${v.ra ? `<span class="etq">${esc(v.ra)}</span>` : ''}
+      ${v.ce ? `<span class="etq">CE ${esc(v.ce)}</span>` : ''}
+      ${v.proceso ? `<span class="etq">${esc(v.proceso)}</span>` : ''}
+      ${puntos.length ? `<h4>FÍJATE EN</h4><ul>${puntos.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+      ${v.pregunta ? `<h4>COMPRUEBA QUE LO HAS ENTENDIDO</h4><div class="pregunta">${esc(v.pregunta)}</div>
+        ${v.respuesta ? `<button class="btnresp" onclick="verRespuesta(this)">👀 VER RESPUESTA</button>
+        <div class="respuesta"><b>Respuesta:</b> ${esc(v.respuesta)}</div>` : ''}` : ''}
+      <div class="fuente">
+        ${v.autor ? 'Autor: ' + esc(v.autor) : ''}
+        ${v.enlace ? ` · <a href="${esc(v.enlace)}" target="_blank" rel="noopener">Ver original</a>` : ''}
+      </div>`;
+    $('modal').classList.add('abierto');
+  }
+  function verRespuesta(btn) {
+    const r = btn.nextElementSibling, ver = !r.classList.contains('ver');
+    r.classList.toggle('ver', ver);
+    btn.textContent = ver ? '🙈 OCULTAR RESPUESTA' : '👀 VER RESPUESTA';
+  }
+  function cerrar() { $('modal').classList.remove('abierto'); $('mVideo').innerHTML = ''; }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrar(); });
+</script>
+</body>
+</html>
